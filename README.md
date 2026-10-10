@@ -33,7 +33,15 @@ Un solo botón, **Cobrar e imprimir** (también `F4`). No hay pantalla de confir
 
 Si no hay folio o no se puede guardar, **no se imprime nada** y la venta se queda en pantalla para poder cobrarla de nuevo: es preferible un aviso a entregar un papel sin número o perder la venta.
 
-La factura impresa lleva una columna **Unidad** (`pieza`, `botella`, `libro`…) para que quede claro qué se vendió y en qué presentación. En pantalla esa columna se ve desde 640px; en móvil, donde la tabla es más ancha que el papel, se oculta y el papel se desplaza en horizontal para no cortar nada. Al imprimir siempre sale, sin importar el tamaño de la pantalla desde la que se imprima.
+La factura sale para un **rollo térmico de 80 mm** (`@page { size: 80mm 297mm }`). Es un ticket estilo de impresora térmica (como `example.txt`), todo centrado y compacto. Usa `=` y `-` para separar secciones, fuente monoespacial para alinear cantidades, precios y totales, y no lleva bordes ni fondos para ahorrar tinta. 
+
+- **Encabezado:** logo centrado, nombre de la tienda, dirección, teléfono, RFC, correo.
+- **Datos de factura:** `FACTURA N°: ...`, `FECHA: DD/MM/AAAA HH:MM AM/PM`.
+- **Productos:** cada línea muestra `CANT. DESCRIPCIÓN       PRECIO    TOTAL` alineados a la derecha.
+- **Totales:** `SUBTOTAL: ...`, `IVA (%): ...`, `DESCUENTO: ...`, `TOTAL A PAGAR: ...`.
+- **Pie:** `¡GRACIAS POR SU COMPRA!` y `Conservar este ticket`, ambos centrados.
+
+En pantalla el ticket se ve centrado en un recuadro de 72–74 mm sobre fondo gris para que se parezca a lo que saldrá impreso. Si tu impresora está en modo continuo, el navegador reserva 297 mm de alto: normalmente basta con eso y no se recorta.
 
 **Atajos**
 

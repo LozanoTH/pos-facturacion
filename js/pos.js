@@ -584,63 +584,54 @@ function atraparFoco(event) {
 
 /** Arma el papel de la factura dentro del modal. */
 function pintarFactura(f) {
-  const contacto = [CONFIG.empresa.rfc, CONFIG.empresa.direccion].filter(Boolean).map(UI.esc).join(" · ");
-  const contacto2 = [CONFIG.empresa.telefono, CONFIG.empresa.correo].filter(Boolean).map(UI.esc).join(" · ");
-  const fecha = UI.fechaHora(f.fecha);
+    /* Ticket estilo impresora térmica. Sin líneas hechas con bordes: se usan
+     guiones para separar como en el ejemplo. Todo centrado y compacto. */
+  const fechaHora = new Date(f.fecha).toLocaleString("es-CO", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  }).replace(",", " ");
+
+  const linea = "----------------------------------------";
+  const doble = "========================================";
 
   const filas = f.items.map(i =>
-    '<tr class="border-b border-slate-200">' +
-      '<td class="px-2 py-1 font-mono text-[11px]">' + UI.esc(i.codigo) + "</td>" +
-      '<td class="px-2 py-1">' + UI.esc(i.descripcion) + "</td>" +
-      '<td class="px-2 py-1 text-slate-600 hidden sm:table-cell print:table-cell">' + UI.esc(i.unidad || "pieza") + "</td>" +
-      '<td class="px-2 py-1 text-right">' + i.cantidad + "</td>" +
-      '<td class="px-2 py-1 text-right font-mono">' + UI.esc(dinero(i.precio)) + "</td>" +
-      '<td class="px-2 py-1 text-right font-mono">' + UI.esc(dinero(i.precio * i.cantidad)) + "</td>" +
-    "</tr>").join("");
+    '<p class="text-[10px] font-mono leading-tight mt-0.5">' +
+      String(i.cantidad).padStart(2) + "     " +
+      (UI.esc(i.descripcion).length > 15 ? UI.esc(i.descripcion).slice(0, 15) : UI.esc(i.descripcion).padEnd(15)) +
+      " " + UI.esc(dinero(i.precio)).padStart(10) +
+      " " + UI.esc(dinero(i.precio * i.cantidad)).padStart(10) +
+    "</p>").join("");
 
   $("previewPapel").innerHTML =
-    '<div class="flex items-start justify-between gap-4 pb-3 border-b-2 border-slate-900">' +
-      '<div class="flex items-start gap-3">' +
-        (CONFIG.empresa.logo ? '<img src="' + UI.esc(CONFIG.empresa.logo) + '" alt="" class="w-12 h-12 object-contain">' : "") +
-        "<div>" +
-          '<h4 class="font-bold text-sm leading-tight">' + UI.esc(CONFIG.empresa.nombre) + "</h4>" +
-          (contacto ? '<p class="text-[11px] text-slate-600">' + contacto + "</p>" : "") +
-          (contacto2 ? '<p class="text-[11px] text-slate-600">' + contacto2 + "</p>" : "") +
-        "</div>" +
-      "</div>" +
-      '<div class="text-right shrink-0">' +
-        '<p class="text-[10px] uppercase tracking-wider text-slate-500">Factura de venta</p>' +
-        '<p class="text-sm font-bold font-mono">' + UI.esc(f.folio) + "</p>" +
-        '<p class="text-[11px] text-slate-600">' + fecha + "</p>" +
-        '<p class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">' +
-          (f.estado === "pagada" ? "Pagada" : UI.esc(f.estado || "")) +
-        "</p>" +
-      "</div>" +
-    "</div>" +
-    '<div class="mt-3 pb-2 border-b border-slate-200">' +
-      '<span class="text-[10px] uppercase tracking-wider text-slate-500">Cliente</span>' +
-      '<p class="font-medium">' + UI.esc(f.cliente) + "</p>" +
-    "</div>" +
-    '<table class="w-full border-collapse mt-3">' +
-      '<thead><tr class="bg-slate-100 text-[10px] uppercase tracking-wider text-slate-600">' +
-        '<th class="px-2 py-1 text-left border border-slate-300">Código</th>' +
-        '<th class="px-2 py-1 text-left border border-slate-300">Producto</th>' +
-        '<th class="px-2 py-1 text-left border border-slate-300 hidden sm:table-cell print:table-cell">Unidad</th>' +
-        '<th class="px-2 py-1 text-right border border-slate-300">Cant.</th>' +
-        '<th class="px-2 py-1 text-right border border-slate-300">Precio</th>' +
-        '<th class="px-2 py-1 text-right border border-slate-300">Subtotal</th>' +
-      "</tr></thead>" +
-      "<tbody>" + filas + "</tbody>" +
-    "</table>" +
-    '<div class="mt-3 ml-auto w-full sm:w-64 text-[12px]">' +
-      '<div class="flex justify-between py-0.5"><span class="text-slate-600">Subtotal</span><span class="font-mono">' + UI.esc(dinero(f.subtotal)) + "</span></div>" +
-      '<div class="flex justify-between py-0.5"><span class="text-slate-600">IVA (' + f.tasaImpuesto + "%)</span><span class=\"font-mono\">" + UI.esc(dinero(f.impuesto)) + "</span></div>" +
-      (f.descuento ? '<div class="flex justify-between py-0.5"><span class="text-slate-600">Descuento</span><span class="font-mono">-' + UI.esc(dinero(f.descuento)) + "</span></div>" : "") +
-      '<div class="flex justify-between items-baseline mt-1 pt-1.5 border-t-2 border-slate-900">' +
-        '<span class="font-bold">TOTAL</span><span class="text-base font-bold font-mono">' + UI.esc(dinero(f.total)) + "</span>" +
-      "</div>" +
-    "</div>" +
-    '<p class="mt-6 text-center text-[11px] text-slate-500">Gracias por su compra</p>';
+    '<div class="recibo mx-auto w-full max-w-[72mm] bg-white text-slate-900 text-[11px] leading-none px-1 py-2 shadow-sm print:shadow-none print:px-0 print:py-0">' +
+      '<div class="text-center font-mono">' +
+        (CONFIG.empresa.logo ? '<img src="' + UI.esc(CONFIG.empresa.logo) + '" alt="" class="mx-auto w-12 h-12 object-contain">' : "") +
+        '<p class="text-[12px] font-bold mt-0.5">' + UI.esc(CONFIG.empresa.nombre) + "</p>" +
+        (CONFIG.empresa.direccion ? '<p class="text-[10px]">' + UI.esc(CONFIG.empresa.direccion) + "</p>" : "") +
+        (CONFIG.empresa.telefono ? '<p class="text-[10px]">Tel: ' + UI.esc(CONFIG.empresa.telefono) + "</p>" : "") +
+        (CONFIG.empresa.rfc ? '<p class="text-[9px]">' + UI.esc(CONFIG.empresa.rfc) + "</p>" : "") +
+        (CONFIG.empresa.correo ? '<p class="text-[9px]">' + UI.esc(CONFIG.empresa.correo) + "</p>" : "") +
+        '<p class="mt-0.5 text-[10px]">' + doble + "</p>" +
+        '<p class="text-[10px]">FACTURA N°: ' + UI.esc(f.folio.replace(/^FV-/, "")) + "</p>" +
+        '<p class="text-[10px]">FECHA: ' + fechaHora + "</p>" +
+        '<p class="text-[10px]">' + doble + "</p>" +
+        '<p class="text-[10px] text-left">CANT.  DESCRIPCIÓN       PRECIO    TOTAL</p>' +
+        '<p class="text-[10px]">' + linea + "</p>" +
+        filas +
+        '<p class="text-[10px]">' + linea + "</p>" +
+        '<p class="text-[10px] text-right">SUBTOTAL: ' + UI.esc(dinero(f.subtotal)).padStart(10) + "</p>" +
+        (f.impuesto ? '<p class="text-[10px] text-right">IVA (' + f.tasaImpuesto + '%): ' + UI.esc(dinero(f.impuesto)).padStart(10) + "</p>" : "") +
+        (f.descuento ? '<p class="text-[10px] text-right">DESCUENTO: -' + UI.esc(dinero(f.descuento)).padStart(10) + "</p>" : "") +
+        '<p class="text-[10px]">' + doble + "</p>" +
+        '<p class="text-[10px] text-right font-bold">TOTAL A PAGAR: ' + UI.esc(dinero(f.total)).padStart(10) + "</p>" +
+        '<p class="text-[10px]">' + doble + "</p>" +
+        '<p class="text-[10px] text-right">CLIENTE: ' + UI.esc(String(f.cliente).slice(0, 20)).padStart(20) + "</p>" +
+        '<p class="text-[10px]">' + linea + "</p>" +
+        '<p class="text-[10px]">¡GRACIAS POR SU COMPRA!</p>' +
+        '<p class="text-[9px]">Conservar este ticket</p>' +
+        '<p class="text-[10px]">' + doble + "</p>" +
+      '</div>' +
+    '</div>';
 
   $("previewTitulo").textContent = "Factura " + f.folio;
 }

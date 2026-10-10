@@ -16,9 +16,13 @@
     <meta name="apple-mobile-web-app-title" content="POS">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <style>
-        /* Al imprimir sale solo el papel de la factura, sin abrir otra pestaña */
+        /* El papel es un rollo térmico de 80 mm. Se declara aquí, fuera de
+           @media print, porque el tamaño de página se lee al imprimir y no
+           admite el atajo `80mm auto` (daría tamaño Carta). */
+        @page { size: 80mm 297mm; margin: 3mm; }
+
+        /* Al imprimir sale solo el papel de la factura, sin abrir otra pestaña. */
         @media print {
-            @page { size: A4; margin: 12mm; }
             body > *:not(#previewModal) { display: none !important; }
             html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
             #previewModal {
@@ -33,11 +37,13 @@
                 background: #fff !important; max-height: none !important; overflow: visible !important;
             }
             #previewToolbar, .no-imprimir { display: none !important; }
-            #previewPapel { padding: 0 !important; overflow: visible !important; }
-            #previewPapel * { color: #000 !important; border-color: #999 !important; }
-            /* en papel las filas van compactas: 30 items siguen en una hoja */
-            #previewPapel td, #previewPapel th { padding-top: 3px !important; padding-bottom: 3px !important; line-height: 1.25 !important; }
-            #previewPapel thead { display: table-header-group; }
+            #previewPapel { padding: 0 !important; overflow: visible !important; background: #fff !important; }
+            /* el ancho del rollo lo manda el @page: aquí no se limita */
+            #previewPapel .recibo {
+                width: 100% !important; max-width: none !important; margin: 0 !important;
+                padding: 0 !important; border: 0 !important; box-shadow: none !important; background: #fff !important;
+            }
+            #previewPapel * { color: #000 !important; }
             #previewPapel tr { break-inside: avoid; }
         }
     </style>
@@ -572,7 +578,7 @@
                         Nueva venta
                     </button>
                 </div>
-                <div id="previewPapel" class="p-4 sm:p-6 text-slate-900 text-[13px] leading-relaxed bg-white dark:bg-white overflow-x-auto">
+                <div id="previewPapel" class="bg-slate-100 dark:bg-surface-950 p-4 sm:p-8 overflow-x-auto">
                     <!-- se arma sola -->
                 </div>
             </div>
