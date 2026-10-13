@@ -292,11 +292,11 @@ function marcarFila(enfocar = false) {
    congelaba el navegador medio segundo, asi que entran por lotes: el scroll
    lo lleva el CSS y el usuario ya ve resultados mientras llega el resto. */
 const TARJETA = p => `
-    <button type="button" data-agregar="${UI.esc(p.id)}" title="${UI.esc(p.codigo + " \u00b7 " + p.nombre + " \u00b7 " + (p.unidad || "pieza") + " \u00b7 " + dinero(p.precio))}" class="w-full min-w-0 text-left bg-slate-50 hover:bg-slate-200/60 dark:bg-surface-950 dark:hover:bg-surface-800 border border-slate-200 dark:border-slate-800 px-2.5 py-2 sm:py-1.5 rounded text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 sm:gap-3 group">
+    <button type="button" data-agregar="${UI.esc(p.id)}" title="${UI.esc(p.codigo + " \u00b7 " + p.nombre + " \u00b7 " + (p.unidad || "pieza") + " \u00b7 " + dinero(p.precio))}" class="w-full min-w-0 text-left bg-slate-50 hover:bg-slate-200/60 dark:bg-surface-950 dark:hover:bg-surface-800 border border-slate-200 dark:border-white/10 px-2.5 py-2 sm:py-1.5 rounded text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 sm:gap-3 group">
       <span class="flex items-center gap-2 min-w-0 flex-1">
         <span class="text-[10px] text-slate-400 font-mono flex-shrink-0">${UI.esc(p.codigo)}</span>
         <span class="font-medium text-slate-700 dark:text-slate-200 truncate group-hover:text-slate-900 dark:group-hover:text-white">${UI.esc(p.nombre)}</span>
-        <span class="text-[10px] text-slate-400 bg-slate-200/70 dark:bg-slate-800 rounded px-1 flex-shrink-0 hidden md:inline">${UI.esc(p.unidad || "pieza")}</span>
+        <span class="text-[10px] text-slate-400 bg-slate-200/70 dark:bg-white/10 rounded px-1 flex-shrink-0 hidden md:inline">${UI.esc(p.unidad || "pieza")}</span>
       </span>
       <span class="font-mono font-semibold text-slate-900 dark:text-slate-100 flex-shrink-0">${UI.esc(dinero(p.precio))}</span>
     </button>`;
@@ -406,12 +406,12 @@ function renderizarTablaCarrito() {
   $("emptyCartMessage").classList.toggle("hidden", carrito.length > 0);
 
   tbody.innerHTML = carrito.map(item => `
-    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+    <tr class="hover:bg-slate-50 dark:hover:bg-white/5/40 transition-colors">
       <td class="celda-codigo py-1.5 pl-1 pr-2 font-mono text-[11px] text-slate-400 whitespace-nowrap">${UI.esc(item.codigo)}</td>
       <td class="celda-nombre py-1.5 pr-2 font-medium text-slate-800 dark:text-slate-200 truncate max-w-0" title="${UI.esc(item.nombre)}">${UI.esc(item.nombre)}</td>
-      <td class="py-1.5 text-center font-mono text-slate-600 dark:text-slate-400 hidden sm:table-cell">${UI.esc(dinero(item.precio))}</td>
+      <td class="py-1.5 text-center font-mono text-slate-600 dark:text-neutral-400 hidden sm:table-cell">${UI.esc(dinero(item.precio))}</td>
       <td class="py-1.5 text-center whitespace-nowrap">
-        <span class="inline-flex items-center border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-surface-950 rounded">
+        <span class="inline-flex items-center border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-surface-950 rounded">
           <button type="button" data-accion="menos" data-id="${UI.esc(item.id)}" class="w-9 h-9 sm:w-7 sm:h-7 -ml-1 sm:ml-0 flex items-center justify-center text-slate-400 hover:text-slate-700 active:text-slate-900">
             <i class="fa-solid fa-minus text-[8px]"></i>
           </button>

@@ -231,7 +231,7 @@ const Ajustes = (() => {
   /* Igual que en el panel principal: con miles de productos la lista entra
      por lotes para que abrirla o filtrarla no congele el navegador. */
   const FILA_CFG = p => `
-        <li class="flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+        <li class="flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 dark:border-white/10 last:border-0">
           <span class="text-[10px] font-mono text-slate-400 flex-shrink-0">${UI.esc(String(p.id).toUpperCase())}</span>
           <span class="flex-1 min-w-0 truncate text-xs text-slate-700 dark:text-slate-200" title="${UI.esc(p.nombre)}">${UI.esc(p.nombre)}</span>
           <span class="text-[10px] text-slate-400 flex-shrink-0 hidden sm:inline">${UI.esc(p.unidad || "pieza")}</span>
