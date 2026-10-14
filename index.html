@@ -427,6 +427,10 @@
                         class="pestana">
                     <i class="fa-solid fa-boxes-stacked text-[10px]" aria-hidden="true"></i>Productos
                 </button>
+                <button id="pestanaFacturas" role="tab" aria-selected="false" aria-controls="panelAjustesfacturas" tabindex="-1"
+                        class="pestana">
+                    <i class="fa-solid fa-receipt text-[10px]" aria-hidden="true"></i>Facturas
+                </button>
                 <button id="pestanaNuevo" role="tab" aria-selected="false" aria-controls="panelAjustesnuevo" tabindex="-1"
                         class="pestana" title="Nuevo producto">
                     <i class="fa-solid fa-circle-plus text-[10px]" aria-hidden="true"></i><span id="pestanaNuevoTexto">Nuevo producto</span>
@@ -522,6 +526,14 @@
                     <ul id="cfgLista" class="border border-slate-200 dark:border-white/10 rounded max-h-[38dvh] overflow-y-auto"></ul>
                 </div>
 
+                <!-- Pestaña: facturas antiguas (búsqueda / consulta) -->
+                <div id="panelAjustesfacturas" class="space-y-2.5 hidden" role="tabpanel" aria-labelledby="pestanaFacturas">
+                    <input type="text" id="cfgBuscarFactura" placeholder="Buscar por folio, cliente o producto..."
+                           class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                    <p id="cfgTotalFacturas" class="text-[10px] text-slate-400"></p>
+                    <ul id="cfgListaFacturas" class="border border-slate-200 dark:border-white/10 rounded max-h-[38dvh] overflow-y-auto"></ul>
+                </div>
+
                 <!-- Pestaña: nuevo producto (sirve también para editar) -->
                 <div id="panelAjustesnuevo" class="hidden" role="tabpanel" aria-labelledby="pestanaNuevo">
                     <div class="border border-slate-200 dark:border-white/10 rounded p-2.5 space-y-2">
@@ -579,6 +591,52 @@
         <button id="btnProcesarMovil" class="ml-auto flex-1 sm:flex-none sm:w-44 bg-slate-900 active:bg-slate-800 dark:bg-white text-white dark:text-slate-900 font-medium py-2 rounded text-xs transition-all duration-150 active:scale-[0.98]">
             Cobrar e imprimir
         </button>
+    </div>
+
+    <!-- EDITAR FACTURA GUARDADA (consulta) -->
+    <div id="facturaEditModal" role="dialog" aria-modal="true" aria-labelledby="facturaEditTitulo"
+         class="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-lg shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-surface-950">
+                <h3 id="facturaEditTitulo" class="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">Editar factura</h3>
+                <button id="btnCerrarEdicionFactura" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-100">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <div class="p-3 space-y-2.5">
+                <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                    <span>Folio: <span id="editFacturaFolio" class="font-mono text-slate-800 dark:text-slate-100"></span></span>
+                    <span id="editFacturaFecha"></span>
+                </div>
+                <label class="block">
+                    <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Cliente</span>
+                    <input id="editFacturaCliente" type="text"
+                           class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                </label>
+                <label class="block">
+                    <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Estado</span>
+                    <select id="editFacturaEstado"
+                            class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        <option value="pagada">Pagada</option>
+                        <option value="anulada">Anulada</option>
+                        <option value="devuelta">Devuelta</option>
+                    </select>
+                </label>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[10px] font-medium text-slate-400 uppercase">Productos de la factura</span>
+                        <span id="editFacturaTotales" class="text-[10px] text-slate-400 font-mono"></span>
+                    </div>
+                    <ul id="editFacturaItems" class="border border-slate-200 dark:border-white/10 rounded max-h-[30dvh] overflow-y-auto"></ul>
+                </div>
+
+                <div class="flex justify-end gap-1.5 pt-1">
+                    <button id="btnCerrarEdicionFactura2" class="px-3 py-1.5 text-[11px] border border-slate-200 dark:border-white/10 rounded hover:bg-slate-50 dark:hover:bg-white/5">Cancelar</button>
+                    <button id="btnGuardarEdicionFactura" class="px-3 py-1.5 text-[11px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded">Guardar</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- FACTURA PARA IMPRIMIR (misma pestaña) -->

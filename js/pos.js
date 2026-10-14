@@ -11,9 +11,11 @@ let filaActiva = -1;           // fila elegida del carrito
 let productosCatalogo = [];   // [{ id, codigo, nombre, precio, unidad }]
 let buscablesCatalogo = [];   // nombre+código ya normalizados, para filtrar sin repetir el trabajo
 let carrito = [];             // [{ id, codigo, nombre, precio, unidad, cantidad }]
+window.facturaEnEdicion = window.facturaEnEdicion || null;
 let ultimaFactura = null;
 let procesando = false;         // evita cobrar dos veces la misma venta
 let ultimaVenta = "";          // firma de lo ya facturado
+window.viendoFacturaBusqueda = window.viendoFacturaBusqueda || false;
 let clientes = [];              // directorio de clientes
 
 const IVA = () => Number(CONFIG.impuestoDefecto) || 0;
@@ -391,11 +393,13 @@ function eliminarDelCarrito(id) {
 }
 
 function reiniciarFactura(silencioso = false) {
+  window.facturaEnEdicion = null;
   carrito = [];
   $("discountInput").value = 0;
   renderizarTablaCarrito();
   calcularTotales();
   guardarBorrador();
+  actualizarBotonAccion();
   if (!silencioso) mostrarToast("Lista reiniciada");
 }
 
@@ -488,6 +492,7 @@ function calcularTotales() {
    ========================================================= */
 
 async function procesarPago() {
+  if (window.facturaEnEdicion) { guardarCambiosFactura(); return; }
   if (procesando) return;                       // doble clic o doble Enter
   if (!carrito.length) return mostrarToast("Agregue productos antes de procesar", "info");
 
@@ -605,7 +610,7 @@ function pintarFactura(f) {
   $("previewPapel").innerHTML =
     '<div class="recibo mx-auto w-full max-w-[72mm] bg-white text-slate-900 text-[11px] leading-none px-1 py-2 shadow-sm print:shadow-none print:px-0 print:py-0">' +
       '<div class="text-center font-mono">' +
-        (CONFIG.empresa.logo ? '<img src="' + UI.esc(CONFIG.empresa.logo) + '" alt="" class="mx-auto w-12 h-12 object-contain">' : "") +
+        (CONFIG.empresa.logo ? '<img src="' + UI.esc(CONFIG.empresa.logo) + '" alt="" class="mx-auto w-32 h-32 max-w-full object-contain">' : "") +
         '<p class="text-[12px] font-bold mt-0.5">' + UI.esc(CONFIG.empresa.nombre) + "</p>" +
         (CONFIG.empresa.direccion ? '<p class="text-[10px]">' + UI.esc(CONFIG.empresa.direccion) + "</p>" : "") +
         (CONFIG.empresa.telefono ? '<p class="text-[10px]">Tel: ' + UI.esc(CONFIG.empresa.telefono) + "</p>" : "") +
@@ -635,6 +640,110 @@ function pintarFactura(f) {
 
   $("previewTitulo").textContent = "Factura " + f.folio;
 }
+
+/** Carga una factura guardada en la venta en curso para editarla
+    sumando o quitando productos desde la pantalla principal. */
+function cargarFacturaEnVenta(factura) {
+  if (!factura) return;
+  // Si ya se está editando otra factura, se pierde el contexto anterior.
+  carrito = (factura.items || []).map(i => ({
+    id: i.id,
+    codigo: i.codigo,
+    nombre: i.descripcion || i.nombre || "",
+    unidad: i.unidad || "pieza",
+    cantidad: Number(i.cantidad) || 1,
+    precio: Number(i.precio) || 0
+  }));
+  window.facturaEnEdicion = factura;
+  $("clientName").value = factura.cliente || "Consumidor Final";
+  if ($("discountInput")) $("discountInput").value = factura.descuento || 0;
+
+  filaActiva = carrito.length ? 0 : -1;
+  renderizarTablaCarrito();
+  calcularTotales();
+  guardarBorrador();
+  actualizarBotonAccion();
+  mostrarToast("Editando " + (factura.folio || "factura") + ": agrega o quita productos y guarda");
+  $("searchInput").focus();
+  $("searchInput").select();
+}
+
+/** Guarda los cambios de una factura editada en pantalla (misma folio). */
+async function guardarCambiosFactura() {
+  if (!window.facturaEnEdicion || procesando) return;
+  if (!carrito.length) return mostrarToast("Agregue productos antes de guardar", "info");
+
+  procesando = true;
+  for (const id of ["btnProcesar", "btnProcesarMovil"]) {
+    const b = $(id);
+    if (!b) continue;
+    b.disabled = true;
+    b.classList.add("opacity-60", "cursor-not-allowed");
+    b.textContent = "Guardando…";
+  }
+
+  const { subtotal, impuesto, tasa, descuento, total } = calcularVenta();
+  const factura = window.facturaEnEdicion;
+  const items = carrito.map(i => ({
+    id: i.id, codigo: i.codigo, descripcion: i.nombre,
+    unidad: i.unidad, cantidad: i.cantidad, precio: i.precio,
+    base: i.precio * i.cantidad
+  }));
+
+  const editada = {
+    ...factura,
+    cliente: $("clientName").value.trim() || "Consumidor Final",
+    items,
+    subtotal,
+    impuesto,
+    tasaImpuesto: tasa,
+    descuento,
+    total,
+    estado: factura.estado || "pagada",
+    actualizado: new Date().toISOString()
+  };
+
+  try {
+    await DB.actualizar(CONFIG.rutas.facturas, factura.id, {
+      cliente: editada.cliente,
+      items: editada.items,
+      subtotal: editada.subtotal,
+      impuesto: editada.impuesto,
+      tasaImpuesto: editada.tasaImpuesto,
+      descuento: editada.descuento,
+      total: editada.total,
+      estado: editada.estado,
+      actualizado: editada.actualizado
+    });
+    window.facturaEnEdicion = null;
+    actualizarBotonAccion();
+    ultimaFactura = editada;
+    // vuelve a imprimir la factura actualizada y, al terminar, reinicia la venta
+    imprimirFactura(editada);
+  } catch (e) {
+    console.error(e);
+    mostrarToast("No se pudo guardar la factura. Revise la conexión", "err");
+  } finally {
+    procesando = false;
+    for (const id of ["btnProcesar", "btnProcesarMovil"]) {
+      const b = $(id);
+      if (!b) continue;
+      b.disabled = false;
+      b.classList.remove("opacity-60", "cursor-not-allowed");
+    }
+    actualizarBotonAccion();
+  }
+}
+
+function actualizarBotonAccion() {
+  const texto = window.facturaEnEdicion ? "Guardar cambios" : "Cobrar e imprimir";
+  for (const id of ["btnProcesar", "btnProcesarMovil"]) {
+    const b = $(id);
+    if (b && !b.disabled) b.textContent = texto;
+  }
+}
+
+window.cargarFacturaEnVenta = cargarFacturaEnVenta;
 
 /** Muestra la factura y manda a imprimir sin pedir nada más. */
 function imprimirFactura(f) {
@@ -729,7 +838,13 @@ window.onload = function () {
   /* La factura se imprime sola al cobrar; cuando el diálogo se cierra
      la venta termina y el POS queda apuntando al buscador. */
   window.addEventListener("afterprint", () => {
-    if (!$("previewModal").classList.contains("hidden")) terminarVenta();
+    if ($("previewModal").classList.contains("hidden")) return;
+    if (window.viendoFacturaBusqueda) {
+      window.viendoFacturaBusqueda = false;
+      cerrarFactura();
+    } else {
+      terminarVenta();
+    }
   });
 
   $("searchResultsGrid").addEventListener("click", e => {
@@ -774,15 +889,35 @@ window.onload = function () {
 
   /* Factura abierta: imprimir otra vez o dar la venta por terminada */
   $("btnPreviewImprimir").addEventListener("click", () => window.print());
-  $("btnPreviewCerrar").addEventListener("click", terminarVenta);
+  $("btnPreviewCerrar").addEventListener("click", () => {
+    if (window.viendoFacturaBusqueda) {
+      window.viendoFacturaBusqueda = false;
+      cerrarFactura();
+    } else {
+      terminarVenta();
+    }
+  });
   $("previewModal").addEventListener("click", e => {
-    if (e.target === $("previewModal")) terminarVenta();
+    if (e.target !== $("previewModal")) return;
+    if (window.viendoFacturaBusqueda) {
+      window.viendoFacturaBusqueda = false;
+      cerrarFactura();
+    } else {
+      terminarVenta();
+    }
   });
 
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && !$("previewModal").classList.contains("hidden")) return terminarVenta();
+    if (e.key === "Escape" && !$("previewModal").classList.contains("hidden")) {
+      if (window.viendoFacturaBusqueda) {
+        window.viendoFacturaBusqueda = false;
+        cerrarFactura();
+        return;
+      }
+      return terminarVenta();
+    }
     if (e.key === "F2") { e.preventDefault(); $("searchInput").focus(); $("searchInput").select(); return; }
-    if (e.key === "F4") { e.preventDefault(); procesarPago(); return; }
+    if (e.key === "F4") { e.preventDefault(); if (window.facturaEnEdicion) guardarCambiosFactura(); else procesarPago(); return; }
     if (e.key === "F3") {
       e.preventDefault();
       $("cartTableBody").focus();

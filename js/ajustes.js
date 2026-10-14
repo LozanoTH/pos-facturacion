@@ -13,7 +13,9 @@ const Ajustes = (() => {
   let ajustes = null;      // copia en memoria de /config/ajustes
   let productos = [];      // catálogo que se está editando
   let buscables = [];      // id+nombre normalizados, para filtrar sin repetir el trabajo
-  let editando = null;     // id del producto en edición
+  let facturasHistorial = [];   // facturas leídas de la BD
+  let facturaEditando = null;   // factura abierta en el editor
+  let editItems = [];            // productos editables de esa factura
   let ocupado = false;     // hay un guardado en curso
 
   /** Lo guardado sobre lo que hay en CONFIG: el formulario nunca sale vacío. */
@@ -77,6 +79,7 @@ const Ajustes = (() => {
     { id: "logo",       icono: "fa-image",          etiqueta: "Logo" },
     { id: "impuestos",  icono: "fa-percent",        etiqueta: "Impuestos" },
     { id: "productos",  icono: "fa-boxes-stacked",  etiqueta: "Productos" },
+    { id: "facturas",   icono: "fa-receipt",        etiqueta: "Facturas" },
     { id: "nuevo",      icono: "fa-circle-plus",    etiqueta: "Nuevo producto" }
   ];
 
@@ -89,6 +92,7 @@ const Ajustes = (() => {
       boton.tabIndex = activa ? 0 : -1;
     }
     if (nombre === "productos") cargarProductos();
+    if (nombre === "facturas") cargarFacturas();
     if (moverFoco) $("pestana" + nombre[0].toUpperCase() + nombre.slice(1)).focus();
   }
 
@@ -478,10 +482,239 @@ const Ajustes = (() => {
     if (botonOrigen && botonOrigen.focus) botonOrigen.focus();
   }
 
+  /* ---------- Facturas antiguas (consulta sin vender) ---------- */
+
+  async function cargarFacturas() {
+    try {
+      facturasHistorial = (await DB.facturas.todos())
+        .filter(f => f && f.folio)
+        .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+    } catch (e) {
+      console.error(e);
+      facturasHistorial = [];
+      mostrarToast("No se pudieron leer las facturas", "warn");
+    }
+    filtrarFacturas();
+  }
+
+  function filtrarFacturas() {
+    const filtro = UI.normalizar($("cfgBuscarFactura").value);
+    const lista = !filtro
+      ? facturasHistorial
+      : facturasHistorial.filter(f => {
+        const texto = UI.normalizar(
+          (f.folio || "") + " " + (f.cliente || "") + " " +
+          (f.items || []).map(i => i.descripcion || "").join(" ")
+        );
+        return texto.includes(filtro);
+      });
+
+    $("cfgTotalFacturas").textContent =
+      facturasHistorial.length + " facturas · " + lista.length + " visibles";
+
+    const listaEl = $("cfgListaFacturas");
+    if (!facturasHistorial.length) {
+      listaEl.innerHTML = '<li class="px-3 py-8 text-center text-[11px] text-slate-400">No hay facturas emitidas todavía</li>';
+      return;
+    }
+    if (!lista.length) {
+      listaEl.innerHTML = '<li class="px-2 py-6 text-center text-[11px] text-slate-400">Sin resultados</li>';
+      return;
+    }
+
+    listaEl.innerHTML = lista.map(f => `
+      <li class="flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 dark:border-white/10 last:border-0">
+        <span class="text-[10px] font-mono text-slate-400 flex-shrink-0">${UI.esc(f.folio)}</span>
+        <span class="text-[10px] text-slate-400 flex-shrink-0 hidden sm:inline">${UI.esc(UI.fechaHora(f.fecha))}</span>
+        <span class="flex-1 min-w-0 truncate text-xs text-slate-700 dark:text-slate-200" title="${UI.esc(f.cliente)}">${UI.esc(f.cliente)}</span>
+        <span class="font-mono text-xs text-slate-900 dark:text-white flex-shrink-0">${UI.esc(dinero(f.total))}</span>
+        <button type="button" data-ver-factura="${UI.esc(f.id)}" class="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100" aria-label="Ver factura ${UI.esc(f.folio)}">
+          <i class="fa-solid fa-eye text-[11px]"></i>
+        </button>
+        <button type="button" data-editar-factura="${UI.esc(f.id)}" class="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100" aria-label="Editar factura ${UI.esc(f.folio)}">
+          <i class="fa-solid fa-pen text-[11px]"></i>
+        </button>
+        <button type="button" data-eliminar-factura="${UI.esc(f.id)}" class="p-1.5 text-slate-300 hover:text-rose-500 dark:text-neutral-500 dark:hover:text-rose-400" aria-label="Eliminar factura ${UI.esc(f.folio)}">
+          <i class="fa-regular fa-trash-can text-xs"></i>
+        </button>
+      </li>`).join("");
+  }
+
+  function verFacturaAntigua(id) {
+    const f = facturasHistorial.find(x => x.id === id);
+    if (!f) return mostrarToast("No se encontró la factura", "warn");
+    window.viendoFacturaBusqueda = true;
+    if (typeof pintarFactura === "function") pintarFactura(f);
+    const modal = $("previewModal");
+    modal.classList.remove("hidden");
+    if (modal.scrollTop !== undefined) modal.scrollTop = 0;
+  }
+
+  /* ---------- Editor y eliminación de facturas ---------- */
+
+  function abrirEditorFactura(id) {
+    const f = facturasHistorial.find(x => x.id === id);
+    if (!f) return mostrarToast("No se encontró la factura", "warn");
+    facturaEditando = f;
+    editItems = (f.items || []).map(i => ({ ...i }));
+    $("editFacturaFolio").textContent = f.folio || "—";
+    $("editFacturaFecha").textContent = UI.fechaHora(f.fecha);
+    $("editFacturaCliente").value = f.cliente || "";
+    $("editFacturaEstado").value = f.estado || "pagada";
+    pintarEditItems();
+    $("facturaEditModal").classList.remove("hidden");
+    $("facturaEditModal").classList.add("flex");
+    $("editFacturaCliente").focus();
+  }
+
+  function pintarEditItems() {
+    const ul = $("editFacturaItems");
+    if (!editItems.length) {
+      ul.innerHTML = '<li class="px-3 py-8 text-center text-[11px] text-slate-400">Sin productos</li>';
+      $("editFacturaTotales").textContent = "Total $0";
+      return;
+    }
+
+    ul.innerHTML = editItems.map((item, idx) => `
+      <li class="flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 dark:border-white/10 last:border-0">
+        <span class="flex-1 min-w-0 truncate text-xs text-slate-700 dark:text-slate-200" title="${UI.esc(item.descripcion)}">${UI.esc(item.descripcion)}</span>
+        <input type="number" min="1" step="1" data-edit-qty="${idx}" value="${Number(item.cantidad) || 1}"
+               class="w-12 bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-1 py-0.5 text-[11px] text-center font-mono focus:outline-none">
+        <span class="text-[10px] text-slate-400 hidden sm:inline">${UI.esc(item.unidad || "pieza")}</span>
+        <span class="font-mono text-[10px] text-slate-500">${UI.esc(dinero(item.precio))}</span>
+        <span class="font-mono text-xs font-semibold text-slate-900 dark:text-white">${UI.esc(dinero((Number(item.precio) || 0) * (Number(item.cantidad) || 0)))}</span>
+        <button type="button" data-remove-item="${idx}" class="p-1 text-slate-300 hover:text-rose-500 dark:text-neutral-500 dark:hover:text-rose-400" aria-label="Quitar ${UI.esc(item.descripcion)}">
+          <i class="fa-solid fa-xmark text-[11px]"></i>
+        </button>
+      </li>`).join("");
+
+    const tasa = Number(facturaEditando.tasaImpuesto || 0);
+    const subtotal = editItems.reduce((s, i) => s + (Number(i.precio) || 0) * (Number(i.cantidad) || 0), 0);
+    const impuesto = subtotal * tasa / 100;
+    const descuento = Number(facturaEditando.descuento) || 0;
+    const total = subtotal + impuesto - descuento;
+    $("editFacturaTotales").textContent =
+      "Subtotal " + dinero(subtotal) + " · IVA " + dinero(impuesto) + " · Total " + dinero(total);
+  }
+
+  function recalcEditFactura() {
+    const tasa = Number(facturaEditando.tasaImpuesto || 0);
+    const subtotal = editItems.reduce((s, i) => s + (Number(i.precio) || 0) * (Number(i.cantidad) || 0), 0);
+    const impuesto = subtotal * tasa / 100;
+    const descuento = Number(facturaEditando.descuento) || 0;
+    const total = subtotal + impuesto - descuento;
+    return { subtotal, impuesto, tasa, descuento, total };
+  }
+
+  function cerrarEditorFactura() {
+    facturaEditando = null;
+    editItems = [];
+    $("facturaEditModal").classList.add("hidden");
+    $("facturaEditModal").classList.remove("flex");
+  }
+
+  async function guardarEdicionFactura() {
+    if (!facturaEditando) return;
+    const boton = $("btnGuardarEdicionFactura");
+    const cliente = $("editFacturaCliente").value.trim() || "Consumidor Final";
+    const estado = $("editFacturaEstado").value;
+    const id = facturaEditando.id;
+
+    if (ocupado) return;
+    ocupado = true;
+    boton.disabled = true;
+    const texto = boton.textContent;
+    boton.textContent = "Guardando…";
+
+    const items = editItems
+      .map(i => ({
+        ...i,
+        cantidad: Number(i.cantidad) || 0,
+        precio: Number(i.precio) || 0
+      }))
+      .filter(i => i.cantidad > 0);
+
+    if (!items.length) {
+      mostrarToast("La factura debe tener al menos un producto", "warn");
+      ocupado = false;
+      boton.disabled = false;
+      boton.textContent = texto;
+      return;
+    }
+
+    const { subtotal, impuesto, tasa, descuento, total } = recalcEditFactura();
+
+    try {
+      await DB.actualizar(CONFIG.rutas.facturas, id, {
+        cliente,
+        estado,
+        items,
+        subtotal,
+        impuesto,
+        tasaImpuesto: tasa,
+        descuento,
+        total,
+        actualizado: new Date().toISOString()
+      });
+      Object.assign(facturaEditando, { cliente, estado, items, subtotal, impuesto, tasaImpuesto: tasa, descuento, total });
+      filtrarFacturas();
+      cerrarEditorFactura();
+      mostrarToast("Factura actualizada");
+    } catch (e) {
+      console.error(e);
+      mostrarToast("No se pudo guardar: revisa la conexión", "err");
+    } finally {
+      ocupado = false;
+      boton.disabled = false;
+      boton.textContent = texto;
+    }
+  }
+
+  async function eliminarFactura(id) {
+    const f = facturasHistorial.find(x => x.id === id);
+    if (!f) return mostrarToast("No se encontró la factura", "warn");
+
+    const ok = await UI.confirmar({
+      titulo: "Eliminar factura",
+      mensaje: "Se borrará " + (f.folio || "esta factura") + " de la base de datos.",
+      detalle: "Esta acción no se puede deshacer.",
+      ok: "Eliminar",
+      cancelar: "Cancelar",
+      peligro: true
+    });
+    if (!ok) return;
+
+    try {
+      await DB.facturas.borrar(id);
+      facturasHistorial = facturasHistorial.filter(x => x.id !== id);
+      filtrarFacturas();
+      mostrarToast("Factura eliminada");
+    } catch (e) {
+      console.error(e);
+      mostrarToast("No se pudo eliminar: revisa la conexión", "err");
+    }
+  }
+
+  /* alias usado por la delegación del clic: edita en la pantalla principal */
+  function editarFactura(id) {
+    const f = facturasHistorial.find(x => x.id === id);
+    if (!f) return mostrarToast("No se encontró la factura", "warn");
+    if (typeof cerrar === "function") cerrar();
+    if (typeof window.cargarFacturaEnVenta === "function") {
+      // Ajustes se cierra antes de cargar para no dejar dos modales
+      setTimeout(() => window.cargarFacturaEnVenta(f), 0);
+    } else {
+      abrirEditorFactura(id);
+    }
+  }
+
   function iniciar() {
     $("btnAjustes").addEventListener("click", abrir);
     document.addEventListener("keydown", e => {
-      if (e.key === "Escape" && !$("ajustesModal").classList.contains("hidden")) cerrar();
+      if (e.key === "Escape") {
+        if (!$("facturaEditModal").classList.contains("hidden")) { cerrarEditorFactura(); return; }
+        if (!$("ajustesModal").classList.contains("hidden")) cerrar();
+      }
     });
     $("btnCerrarAjustes").addEventListener("click", cerrar);
     $("ajustesModal").addEventListener("click", e => { if (e.target === $("ajustesModal")) cerrar(); });
@@ -516,6 +749,34 @@ const Ajustes = (() => {
 
     $("cfgPrecio").addEventListener("input", formatearPrecioAlTeclear);
     $("cfgBuscar").addEventListener("input", pintarProductos);
+    $("cfgBuscarFactura").addEventListener("input", filtrarFacturas);
+    $("cfgListaFacturas").addEventListener("click", e => {
+      const ver = e.target.closest("[data-ver-factura]");
+      if (ver) verFacturaAntigua(ver.dataset.verFactura);
+      const ed = e.target.closest("[data-editar-factura]");
+      if (ed) editarFactura(ed.dataset.editarFactura);
+      const bo = e.target.closest("[data-eliminar-factura]");
+      if (bo) eliminarFactura(bo.dataset.eliminarFactura);
+    });
+    $("editFacturaItems").addEventListener("change", e => {
+      const q = e.target.closest("[data-edit-qty]");
+      if (q) {
+        editItems[Number(q.dataset.editQty)].cantidad = Number(q.value) || 0;
+        pintarEditItems();
+      }
+    });
+    $("editFacturaItems").addEventListener("click", e => {
+      const b = e.target.closest("[data-remove-item]");
+      if (b) {
+        editItems.splice(Number(b.dataset.removeItem), 1);
+        pintarEditItems();
+      }
+    });
+
+    $("btnCerrarEdicionFactura").addEventListener("click", cerrarEditorFactura);
+    $("btnCerrarEdicionFactura2").addEventListener("click", cerrarEditorFactura);
+    $("btnGuardarEdicionFactura").addEventListener("click", guardarEdicionFactura);
+    $("facturaEditModal").addEventListener("click", e => { if (e.target === $("facturaEditModal")) cerrarEditorFactura(); });
     $("btnCancelarProducto").addEventListener("click", cerrarFormulario);
     $("btnGuardarProducto").addEventListener("click", guardarProducto);
     $("cfgLista").addEventListener("click", e => {
