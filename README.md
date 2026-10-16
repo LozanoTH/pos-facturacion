@@ -41,6 +41,7 @@ La factura sale para un **rollo térmico de 80 mm** (`@page { size: 80mm 297mm }
 - **Artículos:** `CANT. I.V.A. DESCRIPCION ... VALOR`; la cantidad con cuatro decimales y la línea solo lleva el valor total.
 - **Detalle de Valores:** `Valor Bruto`, `Valor Descuento`, `Sub Total`, `I.V.A.`, `Impoconsumo`, `I.C.O.`, `I.N.C.` y `TOTAL A PAGAR`.
 - **Información Tributaria:** una fila con la tasa (o `EXENTO`), el valor base y el impuesto.
+- **Recibe y cambio:** `RECIBE:` y `CAMBIO:`. El cajero anota cuánto efectivo le dan en el campo **Recibe** del resumen; si lo deja en blanco se asume pago exacto (`RECIBE` = total, `CAMBIO` = 0).
 - **Formas de pago:** `--- EFECTIVO: <total>`.
 - **Pie DIAN** (opcional): número de autorización, fecha, rango autorizado, prefijo y vigencia.
 - **Cierre:** mensaje configurable y el software.
@@ -75,10 +76,12 @@ El `clamp` hace que la letra siga a la pantalla: 14px en un celular, unos 15px e
 Además, cada parte se acomoda a lo que hay:
 
 - **El buscador también busca por unidad**: el texto de búsqueda es nombre + código + unidad, así que `pieza`, `botella`, `libro` o `paquete` encuentran lo que se busca por cómo se vende. Ignora mayúsculas, tildes y acentos (`BOTELLA` y `botella` dan lo mismo). En pantalla la tarjeta muestra la unidad en una etiqueta al lado del nombre y en el `title`; en el catálogo de Ajustes el filtro funciona igual. Los espacios también sobran: `UI.normalizar()` deja un solo espacio entre palabras y quita los de los bordes, así que `cafe  molido` (dos espacios, tecleado sin querer) encuentra lo mismo que `café molido`, y un campo con nada más espacios se lee como búsqueda vacía en vez de «no encontré nada».
-- **Resultados del buscador**: 1 columna en móvil, 2 desde 640px, 3 desde 1280px y 4 desde 1536px; su alto cede espacio al carrito (`max-h` con `dvh` y más tope en pantallas bajas) para que la lista de la venta nunca quede sin espacio.
+- **Resultados del buscador**: 1 columna en móvil, 2 desde 640px, 3 desde 1280px, 4 desde 1536px y 5 desde 1800px; su alto cede espacio al carrito (`max-h` con `dvh` y más tope en pantallas bajas) para que la lista de la venta nunca quede sin espacio.
+- **Ancho de la app**: usa todo el ancho de la pantalla con un tope de 2000px, así en monitores grandes no quedan franjas muertas a los lados.
+- **Cabecera compacta**: la barra superior mide unos 39px en escritorio (antes ~58px), con logo y botones más ajustados y sin interlineado de sobra; los rótulos de sección (como *Resumen de Precios*) también bajaron de tamaño para ganar alto en la venta.
 - **Panel de la venta**: estira la caja de la tabla y el encabezado queda fijo al desplazar, así que con 50 productos se sigue viendo en qué artículo se está.
 - **Precio editable en el carrito**: el precio de cada fila se puede escribir. Solo afecta la venta en curso: nunca se guarda en el catálogo ni llega a Firebase, y al recargar la app vuelve al precio vigente salvo que se toque otra vez. El IVA y la unidad viajan siempre al ticket.
-- **Panel de totales**: los totales se centran en el espacio sobrante y el botón **Cobrar e imprimir** queda siempre pegado abajo; en pantallas muy bajas el panel se desplaza solo en vez de cortar el botón.
+- **Panel de totales**: los totales se centran en el espacio sobrante y el botón **Cobrar e imprimir** queda siempre pegado abajo; en pantallas muy bajas el panel se desplaza solo en vez de cortar el botón. Debajo del total está el campo **Recibe**: al escribir cuánto efectivo entrega el cliente se calcula el **Cambio** al vuelo (solo aparece cuando hay).
 - **En pantallas táctiles** (`@media (pointer: coarse)`) los botones de cantidad llegan a 44px, que es lo que un dedo encuentra bien; con ratón se mantienen compacto para que la tabla no se convierta en renglones de un metro.
 - **En móvil** el código del producto se oculta para dejarle el ancho al nombre, y el nombre se parte en dos líneas con puntos suspensivos: sin cursor no hay `title` que consultar.
 
@@ -91,7 +94,7 @@ Comprobado con Chrome, sin scroll de página ni desbordes horizontales, en 390×
 /clientes/{clave}    { nombre, rfc, email, direccion, creado }
 /facturas/{clave}    { folio, fecha, cliente, clienteIdentificacion, items[], subtotal,
                      impuesto, tasaImpuesto, impoconsumo, ico, inc, totalOtros,
-                     descuento, total, estado }
+                     descuento, total, recibido, cambio, estado }
 /config/contadorFactura  Número consecutivo del folio
 ```
 

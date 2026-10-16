@@ -690,7 +690,10 @@ const Ajustes = (() => {
     const otros = otrosDeFactura(facturaEditando, subtotal);
     const descuento = Number(facturaEditando.descuento) || 0;
     const total = subtotal + impuesto + otros - descuento;
-    return { subtotal, impuesto, tasa, otros, descuento, total };
+    /* Se conserva el efectivo recibido y el cambio se recalcula con el total nuevo */
+    const recibido = facturaEditando.recibido !== undefined ? Number(facturaEditando.recibido) || 0 : total;
+    const cambio = Math.max(0, recibido - total);
+    return { subtotal, impuesto, tasa, otros, descuento, total, recibido, cambio };
   }
 
   function cerrarEditorFactura() {
@@ -729,7 +732,7 @@ const Ajustes = (() => {
       return;
     }
 
-    const { subtotal, impuesto, tasa, otros, descuento, total } = recalcEditFactura();
+    const { subtotal, impuesto, tasa, otros, descuento, total, recibido, cambio } = recalcEditFactura();
 
     try {
       await DB.actualizar(CONFIG.rutas.facturas, id, {
@@ -742,9 +745,11 @@ const Ajustes = (() => {
         totalOtros: otros,
         descuento,
         total,
+        recibido,
+        cambio,
         actualizado: new Date().toISOString()
       });
-      Object.assign(facturaEditando, { cliente, estado, items, subtotal, impuesto, tasaImpuesto: tasa, totalOtros: otros, descuento, total });
+      Object.assign(facturaEditando, { cliente, estado, items, subtotal, impuesto, tasaImpuesto: tasa, totalOtros: otros, descuento, total, recibido, cambio });
       filtrarFacturas();
       cerrarEditorFactura();
       mostrarToast("Factura actualizada");

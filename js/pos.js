@@ -33,6 +33,7 @@ function guardarBorrador() {
     localStorage.setItem(BORRADOR, JSON.stringify({
       carrito,
       descuento: $("discountInput").value,
+      recibido: $("recibidoInput") ? $("recibidoInput").value : "",
       cliente: $("clientName").value,
       tema: document.documentElement.classList.contains("dark") ? "dark" : "light"
     }));
@@ -58,6 +59,7 @@ function restaurarBorrador() {
   if (!carrito.length) return;
 
   $("discountInput").value = guardado.descuento || 0;
+  if ($("recibidoInput")) $("recibidoInput").value = guardado.recibido || "";
   if (guardado.cliente) $("clientName").value = guardado.cliente;
   renderizarTablaCarrito();
   calcularTotales();
@@ -458,6 +460,7 @@ function reiniciarFactura(silencioso = false) {
   window.facturaEnEdicion = null;
   carrito = [];
   $("discountInput").value = 0;
+  if ($("recibidoInput")) $("recibidoInput").value = "";
   renderizarTablaCarrito();
   calcularTotales();
   guardarBorrador();
@@ -542,7 +545,17 @@ function calcularVenta() {
   }
 
   const total = Math.max(0, subtotal + impuesto + otros - descuento);
-  return { subtotal, impuesto, tasa, otros, detalleOtros, descuento, total };
+
+  /* Efectivo recibido y cambio: si el cajero no anota nada se asume
+     pago exacto (recibe = total, cambio = 0), como en un cobro justo. */
+  const campoRecibido = $("recibidoInput");
+  const tecleado = campoRecibido
+    ? Number(String(campoRecibido.value || "").replace(/[^\d]/g, "")) || 0
+    : 0;
+  const recibido = tecleado > 0 ? tecleado : total;
+  const cambio = Math.max(0, recibido - total);
+
+  return { subtotal, impuesto, tasa, otros, detalleOtros, descuento, total, recibido, cambio };
 }
 
 function formatearDescuentoAlTeclear() {
@@ -576,6 +589,12 @@ function calcularTotales() {
     const nodo = $(id);
     if (nodo) nodo.textContent = dinero(v.total);
   }
+
+  /* El cambio solo aparece cuando el efectivo recibido supera el total */
+  if ($("filaCambio")) {
+    $("filaCambio").classList.toggle("hidden", v.cambio <= 0);
+    $("summaryCambio").textContent = dinero(v.cambio);
+  }
 }
 
 /* =========================================================
@@ -606,7 +625,7 @@ async function procesarPago() {
   const ico = Number(oi.ico) || 0;
   const inc = Number(oi.inc) || 0;
 
-  const { subtotal, impuesto, tasa, otros, descuento, total } = calcularVenta();
+  const { subtotal, impuesto, tasa, otros, descuento, total, recibido, cambio } = calcularVenta();
   const cliente = $("clientName").value.trim() || "Consumidor Final";
   /* Sin folio no hay factura que imprimir: mejor no cobrar que
      sacar un papel sin número y dejar la venta a medias. */
@@ -642,6 +661,8 @@ async function procesarPago() {
     totalOtros: otros,
     descuento,
     total,
+    recibido,
+    cambio,
     estado: "pagada"
   };
 
@@ -717,6 +738,10 @@ function pintarFactura(f) {
   const total = Number(f.total) || 0;
   const tasa = Number(f.tasaImpuesto) || 0;
 
+  /* Recibe y cambio: si la factura no los guardó, se asume pago exacto */
+  const recibido = f.recibido !== undefined ? Number(f.recibido) || 0 : total;
+  const cambio = f.cambio !== undefined ? Number(f.cambio) || 0 : Math.max(0, recibido - total);
+
   /* Impuestos adicionales: los que quedaron guardados con la factura */
   const mImpo = bruto * (Number(f.impoconsumo) || 0) / 100;
   const mIco = bruto * (Number(f.ico) || 0) / 100;
@@ -789,6 +814,10 @@ function pintarFactura(f) {
   cuerpo += p((tasa > 0 ? tasa + "%" : "EXENTO").padEnd(11) + UI.esc(dinero(bruto)).padStart(12) + UI.esc(dinero(impuesto)).padStart(11));
   cuerpo += p(linea);
 
+  cuerpo += filaDinero("RECIBE:", recibido);
+  cuerpo += filaDinero("CAMBIO:", cambio);
+  cuerpo += p(linea);
+
   cuerpo += p("Detalle de las Formas de Pago");
   cuerpo += p("--- EFECTIVO: " + UI.esc(dinero(total)));
   cuerpo += p(linea);
@@ -833,6 +862,13 @@ function cargarFacturaEnVenta(factura) {
   window.facturaEnEdicion = factura;
   $("clientName").value = factura.cliente || "Consumidor Final";
   if ($("discountInput")) $("discountInput").value = factura.descuento || 0;
+  if ($("recibidoInput")) {
+    /* Solo se muestra lo recibido si fue distinto del total (si no, es pago exacto) */
+    const recibido = Number(factura.recibido) || 0;
+    $("recibidoInput").value = recibido > 0 && recibido !== Number(factura.total)
+      ? recibido.toLocaleString("es-CO", { maximumFractionDigits: 0 })
+      : "";
+  }
 
   filaActiva = carrito.length ? 0 : -1;
   renderizarTablaCarrito();
@@ -863,7 +899,7 @@ async function guardarCambiosFactura() {
   const ico = Number(oi.ico) || 0;
   const inc = Number(oi.inc) || 0;
 
-  const { subtotal, impuesto, tasa, otros, descuento, total } = calcularVenta();
+  const { subtotal, impuesto, tasa, otros, descuento, total, recibido, cambio } = calcularVenta();
   const factura = window.facturaEnEdicion;
   const cliente = $("clientName").value.trim() || "Consumidor Final";
   const items = carrito.map(i => ({
@@ -886,6 +922,8 @@ async function guardarCambiosFactura() {
     totalOtros: otros,
     descuento,
     total,
+    recibido,
+    cambio,
     estado: factura.estado || "pagada",
     actualizado: new Date().toISOString()
   };
@@ -904,6 +942,8 @@ async function guardarCambiosFactura() {
       totalOtros: editada.totalOtros,
       descuento: editada.descuento,
       total: editada.total,
+      recibido: editada.recibido,
+      cambio: editada.cambio,
       estado: editada.estado,
       actualizado: editada.actualizado
     });
@@ -1013,6 +1053,14 @@ window.onload = function () {
     guardarBorrador();
   });
   $("clientName").addEventListener("input", guardarBorrador);
+  if ($("recibidoInput")) {
+    /* Mientras se escribe, los miles se ponen solos y el cambio se recalcula */
+    $("recibidoInput").addEventListener("input", () => {
+      formatearMilesEnCampo($("recibidoInput"));
+      calcularTotales();
+      guardarBorrador();
+    });
+  }
   $("btnTema").addEventListener("click", toggleDarkMode);
   $("btnLimpiar").addEventListener("click", async () => {
     if (carrito.length) {

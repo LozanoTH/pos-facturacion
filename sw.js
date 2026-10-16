@@ -10,7 +10,7 @@
    VERSION: al activar borra las cachés viejas y se sirve lo nuevo.
    ========================================================= */
 
-const VERSION = "v4";                 /* súbelo al cambiar la app */
+const VERSION = "v8";                 /* súbelo al cambiar la app */
 const CACHE_APP = "pos-app-" + VERSION;
 const CACHE_CDN = "pos-cdn-" + VERSION;
 const CACHE_DATOS = "pos-datos-" + VERSION;

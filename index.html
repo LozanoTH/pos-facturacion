@@ -133,6 +133,9 @@
         @media (min-width: 1536px) {
             #searchResultsGrid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
         }
+        @media (min-width: 1800px) {
+            #searchResultsGrid { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+        }
         /* pantallas bajas: el buscador cede altura para que la lista siga
            entrando sin empujar el boton de cobrar */
         @media (max-height: 700px) {
@@ -247,37 +250,37 @@
 </head>
 <body class="bg-slate-100 text-slate-800 dark:bg-surface-950 dark:text-slate-100 h-screen h-[100dvh] overflow-hidden flex flex-col transition-colors duration-200 text-xs">
 
-    <header class="shrink-0 border-b border-slate-200/70 dark:border-white/10 bg-white/75 dark:bg-surface-900/75 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2">
-        <div class="max-w-7xl 2xl:max-w-[1600px] mx-auto flex items-center justify-between gap-2">
+    <header class="shrink-0 border-b border-slate-200/70 dark:border-white/10 bg-white/75 dark:bg-surface-900/75 backdrop-blur-md px-3 sm:px-4 py-1">
+        <div class="max-w-[2000px] mx-auto flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
-                <img id="marcaLogo" alt="" aria-hidden="true" class="hidden w-8 h-8 rounded object-contain flex-shrink-0">
-                <div id="marcaInicial" class="w-7 h-7 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                <img id="marcaLogo" alt="" aria-hidden="true" class="hidden w-7 h-7 rounded object-contain flex-shrink-0">
+                <div id="marcaInicial" class="w-6 h-6 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-bold text-[11px] flex-shrink-0">
                     F
                 </div>
                 <span class="font-semibold text-xs tracking-tight text-slate-900 dark:text-white truncate">Facturación POS</span>
-                <span id="dbLed" class="hidden sm:inline-flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-200 dark:border-white/10 text-[10px] text-slate-400">
+                <span id="dbLed" class="hidden sm:inline-flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-200 dark:border-white/10 text-[9px] text-slate-400">
                     <i id="dbLedIcon" class="fa-solid fa-circle text-[6px] text-slate-300"></i>
                     <span id="dbLedTexto">conectando…</span>
                 </span>
             </div>
 
-            <div class="flex items-center gap-3 flex-shrink-0">
+            <div class="flex items-center gap-1.5 flex-shrink-0">
                 <button id="btnAjustes" aria-expanded="false" aria-haspopup="dialog" aria-label="Ajustes: empresa, logo, impuestos y productos"
-                        class="p-2 text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-slate-100" title="Ajustes">
-                    <i class="fa-solid fa-gear text-xs"></i>
+                        class="p-1.5 leading-none text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-slate-100" title="Ajustes">
+                    <i class="fa-solid fa-gear text-[13px]"></i>
                 </button>
-                <button id="btnTema" class="p-2 text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-slate-100" title="Cambiar tema">
-                    <i id="themeIcon" class="fa-solid fa-moon text-xs"></i>
+                <button id="btnTema" class="p-1.5 leading-none text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-slate-100" title="Cambiar tema">
+                    <i id="themeIcon" class="fa-solid fa-moon text-[13px]"></i>
                 </button>
                 <div class="h-3 w-px bg-slate-200 dark:border-white/10"></div>
-                <button id="btnLimpiar" class="text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-slate-200">
+                <button id="btnLimpiar" class="text-[10px] font-medium text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-slate-200">
                     Limpiar
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="flex-1 min-h-0 max-w-7xl 2xl:max-w-[1600px] w-full mx-auto p-1.5 sm:p-3 lg:pb-3 flex flex-col gap-1.5 sm:gap-3 overflow-y-auto">
+    <main class="flex-1 min-h-0 max-w-[2000px] w-full mx-auto p-1.5 sm:p-3 lg:pb-3 flex flex-col gap-1.5 sm:gap-3 overflow-y-auto">
 
         <!-- BUSCADOR CON RESULTADOS COMPACTOS -->
         <section class="shrink-0 bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 sm:p-2.5 shadow-sm space-y-1.5 sm:space-y-2">
@@ -296,12 +299,12 @@
             </div>
 
             <!-- RESULTADOS DE BÚSQUEDA -->
-            <div id="resultsContainer" class="border-t border-slate-100 dark:border-white/10 pt-2">
-                <div class="hidden sm:flex items-center justify-between mb-1.5 px-0.5 text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+            <div id="resultsContainer" class="border-t border-slate-100 dark:border-white/10 pt-1.5">
+                <div class="hidden sm:flex items-center justify-between mb-1 px-0.5 text-[9px] text-slate-400 font-medium uppercase tracking-wide">
                     <span>Resultados de búsqueda</span>
                     <span id="resultsCount">0 encontrados</span>
                 </div>
-                <span id="resultsCountMovil" class="sm:hidden text-[10px] text-slate-400 font-medium uppercase tracking-wider">0 encontrados</span>
+                <span id="resultsCountMovil" class="sm:hidden text-[9px] text-slate-400 font-medium uppercase tracking-wide">0 encontrados</span>
 
                 <div id="searchResultsGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-1.5 max-h-[min(30dvh,200px)] lg:max-h-[min(34dvh,320px)] overflow-y-auto overscroll-contain">
                     <!-- Productos del catálogo -->
@@ -314,21 +317,21 @@
             <!-- TABLA DE PRODUCTOS SELECCIONADOS -->
             <section class="lg:col-span-8 min-h-0 lg:flex-1 lg:min-h-0 bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 sm:p-3 shadow-sm flex flex-col overflow-hidden">
                 <div class="flex-1 min-h-0 flex flex-col">
-                    <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10 mb-2 shrink-0">
-                        <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Productos Seleccionados</span>
-                        <span id="cartBadge" class="text-[11px] font-medium text-slate-400">0 items</span>
+                    <div class="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-white/10 mb-1.5 shrink-0">
+                        <span class="text-[9px] font-semibold text-slate-500 uppercase tracking-wide">Productos Seleccionados</span>
+                        <span id="cartBadge" class="text-[9px] font-medium text-slate-400">0 items</span>
                     </div>
 
                     <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                         <table class="w-full text-left border-collapse">
                             <thead class="sticky top-0 z-10 bg-white dark:bg-surface-900">
-                                <tr class="text-[10px] font-medium text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-white/10">
-                                    <th class="celda-codigo py-1.5 pl-1 pr-2">Código</th>
-                                    <th class="py-1.5 pr-2">Producto</th>
-                                    <th class="py-1.5 text-center hidden sm:table-cell">Precio</th>
-                                    <th class="py-1.5 text-center w-20 sm:w-28">Cant.</th>
-                                    <th class="py-1.5 text-right pr-1">Subtotal</th>
-                                    <th class="py-1.5 text-center w-8"></th>
+                                <tr class="text-[9px] font-medium text-slate-400 uppercase tracking-wide border-b border-slate-100 dark:border-white/10">
+                                    <th class="celda-codigo py-1 pl-1 pr-2">Código</th>
+                                    <th class="py-1 pr-2">Producto</th>
+                                    <th class="py-1 text-center hidden sm:table-cell">Precio</th>
+                                    <th class="py-1 text-center w-20 sm:w-28">Cant.</th>
+                                    <th class="py-1 text-right pr-1">Subtotal</th>
+                                    <th class="py-1 text-center w-8"></th>
                                 </tr>
                             </thead>
                             <tbody id="cartTableBody" tabindex="0" aria-label="Productos seleccionados" class="divide-y divide-slate-100 dark:divide-white/10 text-xs focus:outline-none">
@@ -346,7 +349,7 @@
 
             <!-- RESUMEN DE PRECIOS -->
             <section class="lg:col-span-4 shrink-0 bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 sm:p-3 shadow-sm flex flex-col gap-2 lg:min-h-0 lg:overflow-y-auto overscroll-contain">
-                <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block border-b border-slate-100 dark:border-white/10 pb-1.5 shrink-0">
+                <span class="text-[9px] font-semibold text-slate-500 uppercase tracking-wide block border-b border-slate-100 dark:border-white/10 pb-1 shrink-0">
                     Resumen de Precios
                 </span>
 
@@ -354,16 +357,24 @@
                 <div class="grid grid-cols-2 lg:grid-cols-1 gap-x-3 gap-y-2 lg:flex lg:flex-1 lg:flex-col lg:justify-center">
                     <div class="space-y-2">
                         <div>
-                            <label class="block text-[10px] font-medium text-slate-400 uppercase mb-1" for="clientName">Cliente</label>
+                            <label class="block text-[9px] font-medium text-slate-400 uppercase mb-0.5" for="clientName">Cliente</label>
                             <input type="text" id="clientName" list="listaClientes" autocomplete="off" value="Consumidor Final"
                                    class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
                             <datalist id="listaClientes"></datalist>
                         </div>
                         <div class="flex flex-wrap justify-between items-center gap-1 text-slate-500 text-xs">
-                            <label class="text-[10px] font-medium text-slate-400 uppercase" for="discountInput">Descuento <span id="discountPct" class="font-mono normal-case"></span></label>
+                            <label class="text-[9px] font-medium text-slate-400 uppercase" for="discountInput">Descuento <span id="discountPct" class="font-mono normal-case"></span></label>
                             <span class="flex items-center gap-0.5">
                                 <span class="text-slate-400 text-xs">$</span>
                                 <input type="text" id="discountInput" value="0" inputmode="numeric" aria-label="Descuento en pesos"
+                                       class="w-20 lg:w-16 bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-1.5 py-0.5 text-[11px] text-right font-mono text-slate-800 dark:text-slate-200 focus:outline-none">
+                            </span>
+                        </div>
+                        <div class="flex flex-wrap justify-between items-center gap-1 text-slate-500 text-xs">
+                            <label class="text-[9px] font-medium text-slate-400 uppercase" for="recibidoInput">Recibe</label>
+                            <span class="flex items-center gap-0.5">
+                                <span class="text-slate-400 text-xs">$</span>
+                                <input type="text" id="recibidoInput" value="" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Efectivo recibido"
                                        class="w-20 lg:w-16 bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-1.5 py-0.5 text-[11px] text-right font-mono text-slate-800 dark:text-slate-200 focus:outline-none">
                             </span>
                         </div>
@@ -392,6 +403,10 @@
                                 <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">TOTAL</span>
                                 <span id="summaryTotal" class="text-xl font-bold font-mono tracking-tight text-slate-900 dark:text-white">$0</span>
                             </div>
+                        </div>
+                        <div id="filaCambio" class="hidden flex justify-between items-baseline gap-2 text-slate-600 dark:text-slate-300 pt-1.5 border-t border-slate-100 dark:border-white/10">
+                            <span class="text-sm font-semibold">Cambio</span>
+                            <span id="summaryCambio" class="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">$0</span>
                         </div>
                     </div>
                 </div>
