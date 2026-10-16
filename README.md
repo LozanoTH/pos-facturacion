@@ -33,13 +33,17 @@ Un solo botón, **Cobrar e imprimir** (también `F4`). No hay pantalla de confir
 
 Si no hay folio o no se puede guardar, **no se imprime nada** y la venta se queda en pantalla para poder cobrarla de nuevo: es preferible un aviso a entregar un papel sin número o perder la venta.
 
-La factura sale para un **rollo térmico de 80 mm** (`@page { size: 80mm 297mm }`). Es un ticket estilo de impresora térmica (como `example.txt`), todo centrado y compacto. Usa `=` y `-` para separar secciones, fuente monoespacial para alinear cantidades, precios y totales, y no lleva bordes ni fondos para ahorrar tinta. 
+La factura sale para un **rollo térmico de 80 mm** (`@page { size: 80mm 297mm }`). Sigue el formato de `example.txt` (Factura de Venta P.O.S. colombiana): encabezado centrado, datos del punto de venta, artículos, detalle de valores, información tributaria, formas de pago y, si está configurado, el pie de autorización DIAN. Usa `=` y `-` para separar secciones, fuente monoespacial para alinear cantidades y valores, y no lleva bordes ni fondos para ahorrar tinta.
 
-- **Encabezado:** logo centrado, nombre de la tienda, dirección, teléfono, RFC, correo.
-- **Datos de factura:** `FACTURA N°: ...`, `FECHA: DD/MM/AAAA HH:MM AM/PM`.
-- **Productos:** cada línea muestra `CANT. DESCRIPCIÓN       PRECIO    TOTAL` alineados a la derecha.
-- **Totales:** `SUBTOTAL: ...`, `IVA (%): ...`, `DESCUENTO: ...`, `TOTAL A PAGAR: ...`.
-- **Pie:** `¡GRACIAS POR SU COMPRA!` y `Conservar este ticket`, ambos centrados.
+- **Encabezado:** logo, «Bienvenido a», sucursal, nombre de la empresa, `NIT:`, dirección, `Telefono:` y correo.
+- **Punto de venta:** ciudad, régimen, título del documento y `POS <número>`.
+- **Datos de la venta:** `Fecha: DD-Mmm-AAAA Hora: HH:MM:SS`, `Vendedor:`, `Cliente:` e `Identificacion:` (esta última se resuelve por el directorio de clientes; con «Consumidor Final» sale «OCASIONAL» e id `1`).
+- **Artículos:** `CANT. I.V.A. DESCRIPCION ... VALOR`; la cantidad con cuatro decimales y la línea solo lleva el valor total.
+- **Detalle de Valores:** `Valor Bruto`, `Valor Descuento`, `Sub Total`, `I.V.A.`, `Impoconsumo`, `I.C.O.`, `I.N.C.` y `TOTAL A PAGAR`.
+- **Información Tributaria:** una fila con la tasa (o `EXENTO`), el valor base y el impuesto.
+- **Formas de pago:** `--- EFECTIVO: <total>`.
+- **Pie DIAN** (opcional): número de autorización, fecha, rango autorizado, prefijo y vigencia.
+- **Cierre:** mensaje configurable y el software.
 
 En pantalla el ticket se ve centrado en un recuadro de 72–74 mm sobre fondo gris para que se parezca a lo que saldrá impreso. Si tu impresora está en modo continuo, el navegador reserva 297 mm de alto: normalmente basta con eso y no se recorta.
 
@@ -73,6 +77,7 @@ Además, cada parte se acomoda a lo que hay:
 - **El buscador también busca por unidad**: el texto de búsqueda es nombre + código + unidad, así que `pieza`, `botella`, `libro` o `paquete` encuentran lo que se busca por cómo se vende. Ignora mayúsculas, tildes y acentos (`BOTELLA` y `botella` dan lo mismo). En pantalla la tarjeta muestra la unidad en una etiqueta al lado del nombre y en el `title`; en el catálogo de Ajustes el filtro funciona igual. Los espacios también sobran: `UI.normalizar()` deja un solo espacio entre palabras y quita los de los bordes, así que `cafe  molido` (dos espacios, tecleado sin querer) encuentra lo mismo que `café molido`, y un campo con nada más espacios se lee como búsqueda vacía en vez de «no encontré nada».
 - **Resultados del buscador**: 1 columna en móvil, 2 desde 640px, 3 desde 1280px y 4 desde 1536px; su alto cede espacio al carrito (`max-h` con `dvh` y más tope en pantallas bajas) para que la lista de la venta nunca quede sin espacio.
 - **Panel de la venta**: estira la caja de la tabla y el encabezado queda fijo al desplazar, así que con 50 productos se sigue viendo en qué artículo se está.
+- **Precio editable en el carrito**: el precio de cada fila se puede escribir. Solo afecta la venta en curso: nunca se guarda en el catálogo ni llega a Firebase, y al recargar la app vuelve al precio vigente salvo que se toque otra vez. El IVA y la unidad viajan siempre al ticket.
 - **Panel de totales**: los totales se centran en el espacio sobrante y el botón **Cobrar e imprimir** queda siempre pegado abajo; en pantallas muy bajas el panel se desplaza solo en vez de cortar el botón.
 - **En pantallas táctiles** (`@media (pointer: coarse)`) los botones de cantidad llegan a 44px, que es lo que un dedo encuentra bien; con ratón se mantienen compacto para que la tabla no se convierta en renglones de un metro.
 - **En móvil** el código del producto se oculta para dejarle el ancho al nombre, y el nombre se parte en dos líneas con puntos suspensivos: sin cursor no hay `title` que consultar.
@@ -84,7 +89,9 @@ Comprobado con Chrome, sin scroll de página ni desbordes horizontales, en 390×
 ```
 /productos/{clave}   { nombre, precio, impuesto, unidad, creado }
 /clientes/{clave}    { nombre, rfc, email, direccion, creado }
-/facturas/{clave}    { folio, fecha, cliente, items[], subtotal, impuesto, descuento, total, estado }
+/facturas/{clave}    { folio, fecha, cliente, clienteIdentificacion, items[], subtotal,
+                     impuesto, tasaImpuesto, impoconsumo, ico, inc, totalOtros,
+                     descuento, total, estado }
 /config/contadorFactura  Número consecutivo del folio
 ```
 
@@ -99,14 +106,20 @@ Todo lo editable está en `js/config.js`:
 | `firebase.databaseURL` | URL de tu Realtime Database |
 | `moneda` | `locale`, `codigo`, `simbolo` y `decimales` del importe (por defecto COP sin decimales: `$32.000`) |
 | `impuestoDefecto` | Porcentaje que se aplica a la venta (19 % = IVA Colombia) |
-| `empresa` | Nombre, NIT/RFC, dirección, correo y teléfono del emisor (aparecen en la factura) |
+| `empresa` | Nombre, NIT/RFC, dirección, correo, teléfono y datos del establecimiento (`sucursal`, `ciudad`, `regimen`) del emisor |
+| `documento` | Título del documento, cajero, N° de POS y prefijo |
+| `dian` | Autorización DIAN: número, fecha, rango (`desde`/`hasta`), `vigenciaMeses` y `vigenciaHasta` (opcional) |
+| `otrosImpuestos` | `impoconsumo`, `ico` e `inc` en porcentaje sobre el valor bruto (0 = no aplican) |
+| `pie` | `mensaje` y `software` del cierre del ticket |
 | `rutas` | Nombres de las colecciones dentro de la base |
 
 El logo, los datos de la empresa y el IVA se editan también desde **Ajustes** en la app y se aplican al vuelo.
 
 ### Ajustes: una pestaña por opción
 
-Cinco pestañas: **Empresa**, **Logo**, **Impuestos**, **Productos** y **Nuevo producto** (esta última también edita). Cada sección de datos tiene su propio botón de guardar, así que no hay que mandar datos de una junto con los de otra. Los ajustes se escriben en el mismo nodo `/config/ajustes`, pero cada guardado solo toca su parte y deja lo demás como estaba. La barra responde a las flechas del teclado, envuelve en dos filas en pantallas pequeñas para que ninguna pestaña quede oculta, y cada panel es un `tabpanel` de verdad (`aria-selected`, `aria-controls`).
+Seis pestañas: **Empresa**, **Logo**, **Impuestos**, **Documento**, **Productos** y **Nuevo producto** (esta última también edita). Cada sección de datos tiene su propio botón de guardar, así que no hay que mandar datos de una junto con los de otra. Los ajustes se escriben en el mismo nodo `/config/ajustes`, pero cada guardado solo toca su parte y deja lo demás como estaba. La barra responde a las flechas del teclado, envuelve en dos filas en pantallas pequeñas para que ninguna pestaña quede oculta, y cada panel es un `tabpanel` de verdad (`aria-selected`, `aria-controls`).
+
+**Empresa** guarda el nombre, el NIT, la dirección, el teléfono, el correo y los datos del establecimiento (**sucursal**, **ciudad** y **régimen**) que salen en el encabezado del ticket. **Impuestos** fija el IVA por defecto. **Documento** agrupa lo que solo afecta al papel: el título del documento, el cajero, el N° de POS y el prefijo; la **autorización DIAN** (número, fecha, rango autorizado y vigencia, opcionales); los **impuestos adicionales** (Impoconsumo, I.C.O., I.N.C., en porcentaje sobre el valor bruto — en 0 no aparecen ni cambian el total); y el **pie** (mensaje y software).
 
 El catálogo y el formulario están separados: la lista nunca queda debajo de un formulario abierto.
 

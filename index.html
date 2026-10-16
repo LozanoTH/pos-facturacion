@@ -363,7 +363,7 @@
                             <label class="text-[10px] font-medium text-slate-400 uppercase" for="discountInput">Descuento <span id="discountPct" class="font-mono normal-case"></span></label>
                             <span class="flex items-center gap-0.5">
                                 <span class="text-slate-400 text-xs">$</span>
-                                <input type="number" id="discountInput" value="0" min="0" aria-label="Descuento en pesos"
+                                <input type="text" id="discountInput" value="0" inputmode="numeric" aria-label="Descuento en pesos"
                                        class="w-20 lg:w-16 bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-1.5 py-0.5 text-[11px] text-right font-mono text-slate-800 dark:text-slate-200 focus:outline-none">
                             </span>
                         </div>
@@ -382,6 +382,10 @@
                         <div class="flex justify-between gap-2 text-slate-500 text-xs">
                             <span>IVA (<span id="taxRate">0</span>%)</span>
                             <span id="summaryTax" class="font-mono text-slate-800 dark:text-slate-200">$0</span>
+                        </div>
+                        <div id="filaOtros" class="hidden flex justify-between gap-2 text-slate-500 text-xs">
+                            <span>Otros imp.</span>
+                            <span id="summaryOtros" class="font-mono text-slate-800 dark:text-slate-200">$0</span>
                         </div>
                         <div class="pt-1.5 border-t border-slate-100 dark:border-white/10">
                             <div class="flex justify-between items-baseline gap-2" role="status" aria-live="polite" aria-atomic="true">
@@ -423,6 +427,10 @@
                         class="pestana">
                     <i class="fa-solid fa-percent text-[10px]" aria-hidden="true"></i>Impuestos
                 </button>
+                <button id="pestanaDocumento" role="tab" aria-selected="false" aria-controls="panelAjustesdocumento" tabindex="-1"
+                        class="pestana">
+                    <i class="fa-solid fa-file-invoice text-[10px]" aria-hidden="true"></i>Documento
+                </button>
                 <button id="pestanaProductos" role="tab" aria-selected="false" aria-controls="panelAjustesproductos" tabindex="-1"
                         class="pestana">
                     <i class="fa-solid fa-boxes-stacked text-[10px]" aria-hidden="true"></i>Productos
@@ -460,6 +468,18 @@
                         <label class="block">
                             <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Correo</span>
                             <input type="email" id="cfgCorreo" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Sucursal / Establecimiento</span>
+                            <input type="text" id="cfgSucursal" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Ciudad</span>
+                            <input type="text" id="cfgCiudad" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Régimen</span>
+                            <input type="text" id="cfgRegimen" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
                         </label>
                     </div>
                     <div class="flex justify-end pt-1">
@@ -514,6 +534,93 @@
                     </p>
                     <div class="flex justify-end pt-1">
                         <button id="btnGuardarImpuesto" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium py-2 px-4 rounded text-xs">Guardar impuesto</button>
+                    </div>
+                </div>
+
+                <!-- Pestaña: documento (título, cajero, POS, DIAN y pie) -->
+                <div id="panelAjustesdocumento" class="space-y-3 hidden" role="tabpanel" aria-labelledby="pestanaDocumento">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <label class="block sm:col-span-2">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Título del documento</span>
+                            <input type="text" id="cfgTituloDocumento" placeholder="Factura de Venta P.O.S."
+                                   class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Cajero / Vendedor</span>
+                            <input type="text" id="cfgCajero" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">N° de POS</span>
+                            <input type="text" id="cfgPosNumero" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Prefijo</span>
+                            <input type="text" id="cfgPosPrefijo" placeholder="POS" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">N° autorización DIAN</span>
+                            <input type="text" id="cfgDianAutorizacion" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Fecha autorización</span>
+                            <input type="text" id="cfgDianFecha" placeholder="2025/10/24" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Rango autorizado (desde)</span>
+                            <input type="text" id="cfgDianDesde" placeholder="1" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Rango autorizado (hasta)</span>
+                            <input type="text" id="cfgDianHasta" placeholder="10000000" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Vigencia (meses)</span>
+                            <input type="text" id="cfgDianVigenciaMeses" placeholder="60" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[10px] font-medium text-slate-400 uppercase mb-1">Vigente hasta</span>
+                            <input type="text" id="cfgDianVigenciaHasta" placeholder="2030/10/24" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                        </label>
+                    </div>
+
+                    <div class="pt-1 border-t border-slate-100 dark:border-white/10">
+                        <p class="text-[10px] font-semibold text-slate-500 uppercase mb-2">Otros impuestos (%)</p>
+                        <div class="grid grid-cols-3 gap-2.5">
+                            <label class="block">
+                                <span class="block text-[10px] text-slate-400 uppercase mb-1">Impoconsumo</span>
+                                <input type="number" id="cfgImpoconsumo" min="0" max="100" step="0.1" inputmode="decimal"
+                                       class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-slate-400">
+                            </label>
+                            <label class="block">
+                                <span class="block text-[10px] text-slate-400 uppercase mb-1">I.C.O.</span>
+                                <input type="number" id="cfgIco" min="0" max="100" step="0.1" inputmode="decimal"
+                                       class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-slate-400">
+                            </label>
+                            <label class="block">
+                                <span class="block text-[10px] text-slate-400 uppercase mb-1">I.N.C.</span>
+                                <input type="number" id="cfgInc" min="0" max="100" step="0.1" inputmode="decimal"
+                                       class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-slate-400">
+                            </label>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1.5 leading-relaxed">Se calculan sobre el valor bruto y se suman al total. En 0 no aparecen.</p>
+                    </div>
+
+                    <div class="pt-1 border-t border-slate-100 dark:border-white/10">
+                        <p class="text-[10px] font-semibold text-slate-500 uppercase mb-2">Pie del ticket</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <label class="block">
+                                <span class="block text-[10px] text-slate-400 uppercase mb-1">Mensaje</span>
+                                <input type="text" id="cfgPieMensaje" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                            </label>
+                            <label class="block">
+                                <span class="block text-[10px] text-slate-400 uppercase mb-1">Software</span>
+                                <input type="text" id="cfgPieSoftware" class="w-full bg-slate-50 dark:bg-surface-950 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-slate-400">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-1">
+                        <button id="btnGuardarDocumento" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium py-2 px-4 rounded text-xs">Guardar documento</button>
                     </div>
                 </div>
 

@@ -10,7 +10,7 @@ let resultadosVisibles = [];   // ids que se están mostrando
 let filaActiva = -1;           // fila elegida del carrito
 let productosCatalogo = [];   // [{ id, codigo, nombre, precio, unidad }]
 let buscablesCatalogo = [];   // nombre+código ya normalizados, para filtrar sin repetir el trabajo
-let carrito = [];             // [{ id, codigo, nombre, precio, unidad, cantidad }]
+let carrito = [];             // [{ id, codigo, nombre, precio, unidad, cantidad, editadoLocal }]
 window.facturaEnEdicion = window.facturaEnEdicion || null;
 let ultimaFactura = null;
 let procesando = false;         // evita cobrar dos veces la misma venta
@@ -52,7 +52,8 @@ function restaurarBorrador() {
       nombre: String(l.nombre),
       unidad: l.unidad || "pieza",
       precio: Number(l.precio) || 0,
-      cantidad: Math.max(1, parseInt(l.cantidad, 10) || 1)
+      cantidad: Math.max(1, parseInt(l.cantidad, 10) || 1),
+      editadoLocal: !!l.editadoLocal
     }));
   if (!carrito.length) return;
 
@@ -72,9 +73,13 @@ function sincronizarPrecios() {
   for (const item of carrito) {
     const actual = productosCatalogo.find(p => p.id === item.id);
     if (!actual) { faltantes.push(item.nombre); continue; }
-    if (actual.precio !== item.precio) { item.precio = actual.precio; cambio = true; }
+    /* El precio y la unidad pueden haberse editado solo para esta venta:
+       se conservan y no se fijan de nuevo al precio del catálogo. */
+    if (!item.editadoLocal) {
+      if (actual.precio !== item.precio) { item.precio = actual.precio; cambio = true; }
+      if (actual.unidad !== item.unidad) item.unidad = actual.unidad;
+    }
     if (actual.nombre !== item.nombre) item.nombre = actual.nombre;
-    if (actual.unidad !== item.unidad) item.unidad = actual.unidad;
   }
 
   if (cambio) { renderizarTablaCarrito(); calcularTotales(); }
@@ -152,6 +157,14 @@ async function cargarClientes() {
   } catch (e) {
     clientes = [];                    // sin directorio el POS sigue vendiendo
   }
+}
+
+/** Identificación del cliente para la factura: se busca por nombre en el
+    directorio; si es un cliente ocasional se deja vacío. */
+function identificacionCliente(nombre) {
+  if (!nombre || UI.normalizar(nombre) === UI.normalizar("Consumidor Final")) return "";
+  const c = clientes.find(x => UI.normalizar(x.nombre) === UI.normalizar(nombre));
+  return c ? (c.identificacion || "") : "";
 }
 
 /* ---------- LED de la base en la cabecera ----------
@@ -385,6 +398,55 @@ function actualizarCantidadManual(id, nuevaCantidad) {
   else { item.cantidad = val; renderizarTablaCarrito(); calcularTotales(); guardarBorrador(); }
 }
 
+/** Precio escrito en el carrito: solo existe para esta venta en curso y
+    nunca se guarda en el catálogo, así que no llega a Firebase. */
+function aplicarPrecioLocal(id, texto) {
+  const item = carrito.find(i => i.id === id);
+  if (!item) return;
+
+  const limpio = String(texto || "").replace(/[^\d]/g, "");
+  const valor = parseInt(limpio, 10);
+  /* Sin dígitos no hay nada que aplicar: el campo quedó vacío. */
+  if (!limpio || isNaN(valor) || valor === item.precio) return;
+
+  item.precio = valor;
+  item.editadoLocal = true;      /* sincronizarPrecios no lo sobreescribirá */
+  renderizarTablaCarrito();
+  calcularTotales();
+  guardarBorrador();
+}
+
+/** El precio se formatea al salir del campo, cuando el cajero ya terminó. */
+function formatearPrecioAlSalir(campo) {
+  const limpio = String(campo.value || "").replace(/[^\d]/g, "");
+  /* Si se borró todo, el campo vuelve al precio que ya tiene el carrito. */
+  if (!limpio) {
+    const item = carrito.find(i => i.id === campo.dataset.pri);
+    campo.value = item ? precioVisible(item) : "";
+    return;
+  }
+  campo.value = Number(limpio).toLocaleString("es-CO", { maximumFractionDigits: 0 });
+  aplicarPrecioLocal(campo.dataset.pri, campo.value);
+}
+
+/** Pone los puntos de miles mientras se escribe y deja el cursor donde iba:
+    se cuentan los dígitos que había antes del cursor y se vuelve a colocar
+    tras esos mismos dígitos en el texto ya formateado. */
+function formatearMilesEnCampo(campo) {
+  const antes = String(campo.value.slice(0, campo.selectionStart || 0)).replace(/[^\d]/g, "").length;
+  const limpio = String(campo.value || "").replace(/[^\d]/g, "");
+  if (!limpio) { campo.value = ""; return; }
+
+  campo.value = Number(limpio).toLocaleString("es-CO", { maximumFractionDigits: 0 });
+
+  let vistas = 0, posicion = campo.value.length;
+  for (let i = 0; i < campo.value.length; i++) {
+    if (/\d/.test(campo.value[i])) vistas++;
+    if (vistas === antes) { posicion = i + 1; break; }
+  }
+  campo.setSelectionRange(posicion, posicion);
+}
+
 function eliminarDelCarrito(id) {
   carrito = carrito.filter(item => item.id !== id);
   renderizarTablaCarrito();
@@ -403,6 +465,11 @@ function reiniciarFactura(silencioso = false) {
   if (!silencioso) mostrarToast("Lista reiniciada");
 }
 
+/** El precio del carrito se escribe sin símbolo: se formatea al salir. */
+function precioVisible(item) {
+  return Number(item.precio || 0).toLocaleString("es-CO", { maximumFractionDigits: 0 });
+}
+
 function renderizarTablaCarrito() {
   const tbody = $("cartTableBody");
   const totalItems = carrito.reduce((acc, c) => acc + c.cantidad, 0);
@@ -413,7 +480,12 @@ function renderizarTablaCarrito() {
     <tr class="hover:bg-slate-50 dark:hover:bg-white/5/40 transition-colors">
       <td class="celda-codigo py-1.5 pl-1 pr-2 font-mono text-[11px] text-slate-400 whitespace-nowrap">${UI.esc(item.codigo)}</td>
       <td class="celda-nombre py-1.5 pr-2 font-medium text-slate-800 dark:text-slate-200 truncate max-w-0" title="${UI.esc(item.nombre)}">${UI.esc(item.nombre)}</td>
-      <td class="py-1.5 text-center font-mono text-slate-600 dark:text-neutral-400 hidden sm:table-cell">${UI.esc(dinero(item.precio))}</td>
+      <td class="py-1.5 text-center font-mono text-slate-600 dark:text-neutral-400 hidden sm:table-cell">
+        <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
+               aria-label="Precio de ${UI.esc(item.nombre)}"
+               title="Precio solo de esta venta: no cambia el catálogo"
+               value="${precioVisible(item)}" data-pri="${UI.esc(item.id)}"
+               class="w-full max-w-[7rem] bg-transparent text-right text-[11px] font-mono font-medium text-slate-800 dark:text-slate-200 focus:outline-none"></td>
       <td class="py-1.5 text-center whitespace-nowrap">
         <span class="inline-flex items-center border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-surface-950 rounded">
           <button type="button" data-accion="menos" data-id="${UI.esc(item.id)}" class="w-9 h-9 sm:w-7 sm:h-7 -ml-1 sm:ml-0 flex items-center justify-center text-slate-400 hover:text-slate-700 active:text-slate-900">
@@ -450,17 +522,35 @@ function calcularVenta() {
   const tasa = IVA();
   const impuesto = subtotal * (tasa / 100);
 
+  /* Impuestos adicionales (impoconsumo, I.C.O., I.N.C.): en 0 no cambian nada.
+     Se calculan sobre el valor bruto, como el IVA. */
+  const oi = CONFIG.otrosImpuestos || {};
+  const detalleOtros = {
+    impoconsumo: subtotal * ((Number(oi.impoconsumo) || 0) / 100),
+    ico: subtotal * ((Number(oi.ico) || 0) / 100),
+    inc: subtotal * ((Number(oi.inc) || 0) / 100)
+  };
+  const otros = detalleOtros.impoconsumo + detalleOtros.ico + detalleOtros.inc;
+
   const campo = $("discountInput");
-  let descuento = parseFloat(campo.value) || 0;
+  let descuento = Number(String(campo.value || "0").replace(/[^\d]/g, "")) || 0;
   /* Un descuento mayor que la venta dejaría el total en negativo:
      se recorta al total y se avisa, en vez de cobrar de menos. */
-  if (descuento > subtotal + impuesto) {
-    descuento = subtotal + impuesto;
-    campo.value = descuento;
+  if (descuento > subtotal + impuesto + otros) {
+    descuento = subtotal + impuesto + otros;
+    campo.value = Number(descuento).toLocaleString("es-CO", { maximumFractionDigits: 0 });
   }
 
-  const total = Math.max(0, subtotal + impuesto - descuento);
-  return { subtotal, impuesto, tasa, descuento, total };
+  const total = Math.max(0, subtotal + impuesto + otros - descuento);
+  return { subtotal, impuesto, tasa, otros, detalleOtros, descuento, total };
+}
+
+function formatearDescuentoAlTeclear() {
+  const campo = $("discountInput");
+  if (!campo) return;
+  const limpio = String(campo.value || "").replace(/[^\d]/g, "");
+  if (!limpio) { campo.value = ""; return; }
+  campo.value = Number(limpio).toLocaleString("es-CO", { maximumFractionDigits: 0 });
 }
 
 function calcularTotales() {
@@ -469,6 +559,11 @@ function calcularTotales() {
 
   $("summarySubtotal").textContent = dinero(v.subtotal);
   $("summaryTax").textContent = dinero(v.impuesto);
+  /* Los impuestos adicionales solo aparecen cuando hay: si no, sobran */
+  if ($("filaOtros")) {
+    $("filaOtros").classList.toggle("hidden", v.otros <= 0);
+    $("summaryOtros").textContent = dinero(v.otros);
+  }
   /* El descuento solo aparece cuando hay: si no, ocupa espacio y confunde */
   $("filaDescuento").classList.toggle("hidden", v.descuento <= 0);
   $("summaryDiscount").textContent = "−" + dinero(v.descuento);
@@ -506,9 +601,13 @@ async function procesarPago() {
   procesando = true;
   botonProcesar(true);
 
-  const { subtotal, impuesto, tasa, descuento, total } = calcularVenta();
-  const cliente = $("clientName").value.trim() || "Consumidor Final";
+  const oi = CONFIG.otrosImpuestos || {};
+  const impoconsumo = Number(oi.impoconsumo) || 0;
+  const ico = Number(oi.ico) || 0;
+  const inc = Number(oi.inc) || 0;
 
+  const { subtotal, impuesto, tasa, otros, descuento, total } = calcularVenta();
+  const cliente = $("clientName").value.trim() || "Consumidor Final";
   /* Sin folio no hay factura que imprimir: mejor no cobrar que
      sacar un papel sin número y dejar la venta a medias. */
   let folio = "";
@@ -528,6 +627,7 @@ async function procesarPago() {
     folio,
     fecha: new Date().toISOString(),
     cliente,
+    clienteIdentificacion: identificacionCliente(cliente),
     items: carrito.map(i => ({
       id: i.id, codigo: i.codigo, descripcion: i.nombre,
       unidad: i.unidad, cantidad: i.cantidad, precio: i.precio,
@@ -536,6 +636,10 @@ async function procesarPago() {
     subtotal,
     impuesto,
     tasaImpuesto: tasa,
+    impoconsumo,
+    ico,
+    inc,
+    totalOtros: otros,
     descuento,
     total,
     estado: "pagada"
@@ -587,55 +691,127 @@ function atraparFoco(event) {
   else if (!modal.contains(document.activeElement)) { event.preventDefault(); primero.focus(); }
 }
 
-/** Arma el papel de la factura dentro del modal. */
+/** Arma el papel de la factura dentro del modal.
+    Sigue el formato de example.txt: encabezado, datos del punto de venta,
+    artículos, detalle de valores, información tributaria, formas de pago
+    y, si está configurado, el pie de autorización DIAN. */
 function pintarFactura(f) {
-    /* Ticket estilo impresora térmica. Sin líneas hechas con bordes: se usan
-     guiones para separar como en el ejemplo. Todo centrado y compacto. */
-  const fechaHora = new Date(f.fecha).toLocaleString("es-CO", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit"
-  }).replace(",", " ");
+  const fecha = new Date(f.fecha);
+  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const p2 = n => String(n).padStart(2, "0");
+  const fechaTxt = p2(fecha.getDate()) + "-" + MESES[fecha.getMonth()] + "-" + fecha.getFullYear();
+  const horaTxt = p2(fecha.getHours()) + ":" + p2(fecha.getMinutes()) + ":" + p2(fecha.getSeconds());
 
   const linea = "----------------------------------------";
   const doble = "========================================";
 
-  const filas = f.items.map(i =>
-    '<p class="text-[10px] font-mono leading-tight mt-0.5">' +
-      String(i.cantidad).padStart(2) + "     " +
-      (UI.esc(i.descripcion).length > 15 ? UI.esc(i.descripcion).slice(0, 15) : UI.esc(i.descripcion).padEnd(15)) +
-      " " + UI.esc(dinero(i.precio)).padStart(10) +
-      " " + UI.esc(dinero(i.precio * i.cantidad)).padStart(10) +
-    "</p>").join("");
+  const emp = CONFIG.empresa || {};
+  const doc = CONFIG.documento || {};
+  const dian = CONFIG.dian || {};
+  const pie = CONFIG.pie || {};
+
+  const bruto = Number(f.subtotal) || 0;
+  const descuento = Number(f.descuento) || 0;
+  const impuesto = Number(f.impuesto) || 0;
+  const subTotal = bruto - descuento;
+  const total = Number(f.total) || 0;
+  const tasa = Number(f.tasaImpuesto) || 0;
+
+  /* Impuestos adicionales: los que quedaron guardados con la factura */
+  const mImpo = bruto * (Number(f.impoconsumo) || 0) / 100;
+  const mIco = bruto * (Number(f.ico) || 0) / 100;
+  const mInc = bruto * (Number(f.inc) || 0) / 100;
+
+  const p = (txt, clase) => '<p class="text-[10px] font-mono leading-tight' + (clase ? " " + clase : "") + '">' + txt + "</p>";
+  /* fila de dinero: etiqueta a la izquierda, valor a la derecha */
+  const filaDinero = (etiqueta, valor, negrita) =>
+    p(UI.esc(etiqueta.padEnd(17)) + UI.esc(dinero(valor).padStart(11)), negrita ? "font-bold" : "");
+
+  /* La unidad y el valor de la línea viajan con cada artículo */
+  const filas = f.items.map(i => {
+    const cant = Number(i.cantidad).toFixed(4).padEnd(8);
+    const iva = "/".padEnd(4);
+    const desc = UI.esc(String(i.descripcion || "")).slice(0, 23).padEnd(23);
+    const valor = UI.esc(dinero((Number(i.precio) || 0) * (Number(i.cantidad) || 0))).padStart(11);
+    return p(cant + iva + desc + valor, "mt-0.5");
+  }).join("");
+
+  /* Cliente e identificación: se resuelve por el directorio de clientes */
+  const esOcasional = !f.cliente || UI.normalizar(f.cliente) === UI.normalizar("Consumidor Final");
+  const clienteNombre = esOcasional ? "OCASIONAL" : f.cliente;
+  const ident = f.clienteIdentificacion !== undefined ? String(f.clienteIdentificacion || "") : identificacionCliente(f.cliente);
+  const identTxt = ident || (esOcasional ? "1" : "");
+
+  /* ---- encabezado (centrado) ---- */
+  let cabecera = '<div class="text-center">';
+  if (emp.logo) cabecera += '<img src="' + UI.esc(emp.logo) + '" alt="" class="mx-auto w-28 h-28 max-w-full object-contain">';
+  cabecera += p("Bienvenido a");
+  if (emp.sucursal) cabecera += p(UI.esc(emp.sucursal), "text-[11px] font-bold");
+  if (emp.nombre) cabecera += p(UI.esc(emp.nombre), "text-[11px] font-bold");
+  if (emp.rfc) cabecera += p("NIT: " + UI.esc(emp.rfc));
+  if (emp.direccion) cabecera += p(UI.esc(emp.direccion));
+  if (emp.telefono) cabecera += p("Telefono: " + UI.esc(emp.telefono));
+  if (emp.correo) cabecera += p(UI.esc(emp.correo), "text-[9px]");
+  cabecera += p(doble);
+  if (emp.ciudad) cabecera += p(UI.esc(emp.ciudad));
+  if (emp.regimen) cabecera += p(UI.esc(emp.regimen));
+  if (doc.titulo) cabecera += p(UI.esc(doc.titulo));
+  if (doc.pos) cabecera += p("POS " + UI.esc(doc.pos));
+  cabecera += p(doble);
+  cabecera += p("Fecha: " + fechaTxt + " Hora: " + horaTxt);
+  if (doc.cajero) cabecera += p("Vendedor: " + UI.esc(doc.cajero));
+  cabecera += p("Cliente: " + UI.esc(clienteNombre));
+  if (identTxt) cabecera += p("Identificacion: " + UI.esc(identTxt));
+  cabecera += p(doble);
+  cabecera += "</div>";
+
+  /* ---- cuerpo (izquierda) ---- */
+  let cuerpo = "";
+  cuerpo += p("CANT.   I.V.A.  DESCRIPCION".padEnd(35) + "VALOR".padStart(11));
+  cuerpo += p(linea);
+  cuerpo += filas;
+  cuerpo += p(linea);
+
+  cuerpo += p("Detalle de Valores");
+  cuerpo += filaDinero("Valor Bruto:", bruto);
+  cuerpo += filaDinero("Valor Descuento:", descuento);
+  cuerpo += filaDinero("Sub Total:", subTotal);
+  cuerpo += filaDinero("I.V.A. (" + tasa + "%):", impuesto);
+  cuerpo += filaDinero("Impoconsumo:", mImpo);
+  cuerpo += filaDinero("I.C.O.:", mIco);
+  cuerpo += filaDinero("I.N.C.:", mInc);
+  cuerpo += p(doble);
+  cuerpo += filaDinero("TOTAL A PAGAR:", total, true);
+  cuerpo += p(doble);
+
+  cuerpo += p("Informacion Tributaria");
+  cuerpo += p("%".padEnd(11) + "Vr. Base".padStart(12) + "Impuesto".padStart(11));
+  cuerpo += p((tasa > 0 ? tasa + "%" : "EXENTO").padEnd(11) + UI.esc(dinero(bruto)).padStart(12) + UI.esc(dinero(impuesto)).padStart(11));
+  cuerpo += p(linea);
+
+  cuerpo += p("Detalle de las Formas de Pago");
+  cuerpo += p("--- EFECTIVO: " + UI.esc(dinero(total)));
+  cuerpo += p(linea);
+
+  /* Pie DIAN: solo se imprime si hay autorización configurada */
+  if (dian.autorizacion) {
+    cuerpo += p("FACTURACION P.O.S AUTORIZACION DIAN");
+    cuerpo += p("Nro. " + UI.esc(dian.autorizacion) + (dian.fecha ? " Fecha " + UI.esc(dian.fecha) : "") + " Fact. Impresa el " + fechaTxt + " " + horaTxt);
+    const rango = (dian.desde || dian.hasta) ? ("Autoriza POS " + UI.esc(dian.desde || "1") + " - POS " + UI.esc(dian.hasta || "0")) : "";
+    const pref = dian.prefijo || doc.prefijo || "POS";
+    const vig = (dian.vigenciaMeses || dian.vigenciaHasta)
+      ? "Vigencia" + (dian.vigenciaMeses ? " de " + UI.esc(dian.vigenciaMeses) + " meses" : "") + (dian.vigenciaHasta ? " a " + UI.esc(dian.vigenciaHasta) : "")
+      : "";
+    cuerpo += p((rango + (rango ? " " : "") + "Prefijo: " + UI.esc(pref) + (vig ? " " + vig : "")).trim());
+  }
+
+  if (pie.mensaje) cuerpo += p(UI.esc(pie.mensaje));
+  if (pie.software) cuerpo += p("Software: " + UI.esc(pie.software), "text-[9px]");
+  cuerpo += p(doble);
 
   $("previewPapel").innerHTML =
     '<div class="recibo mx-auto w-full max-w-[72mm] bg-white text-slate-900 text-[11px] leading-none px-1 py-2 shadow-sm print:shadow-none print:px-0 print:py-0">' +
-      '<div class="text-center font-mono">' +
-        (CONFIG.empresa.logo ? '<img src="' + UI.esc(CONFIG.empresa.logo) + '" alt="" class="mx-auto w-32 h-32 max-w-full object-contain">' : "") +
-        '<p class="text-[12px] font-bold mt-0.5">' + UI.esc(CONFIG.empresa.nombre) + "</p>" +
-        (CONFIG.empresa.direccion ? '<p class="text-[10px]">' + UI.esc(CONFIG.empresa.direccion) + "</p>" : "") +
-        (CONFIG.empresa.telefono ? '<p class="text-[10px]">Tel: ' + UI.esc(CONFIG.empresa.telefono) + "</p>" : "") +
-        (CONFIG.empresa.rfc ? '<p class="text-[9px]">' + UI.esc(CONFIG.empresa.rfc) + "</p>" : "") +
-        (CONFIG.empresa.correo ? '<p class="text-[9px]">' + UI.esc(CONFIG.empresa.correo) + "</p>" : "") +
-        '<p class="mt-0.5 text-[10px]">' + doble + "</p>" +
-        '<p class="text-[10px]">FACTURA N°: ' + UI.esc(f.folio.replace(/^FV-/, "")) + "</p>" +
-        '<p class="text-[10px]">FECHA: ' + fechaHora + "</p>" +
-        '<p class="text-[10px]">' + doble + "</p>" +
-        '<p class="text-[10px] text-left">CANT.  DESCRIPCIÓN       PRECIO    TOTAL</p>' +
-        '<p class="text-[10px]">' + linea + "</p>" +
-        filas +
-        '<p class="text-[10px]">' + linea + "</p>" +
-        '<p class="text-[10px] text-right">SUBTOTAL: ' + UI.esc(dinero(f.subtotal)).padStart(10) + "</p>" +
-        (f.impuesto ? '<p class="text-[10px] text-right">IVA (' + f.tasaImpuesto + '%): ' + UI.esc(dinero(f.impuesto)).padStart(10) + "</p>" : "") +
-        (f.descuento ? '<p class="text-[10px] text-right">DESCUENTO: -' + UI.esc(dinero(f.descuento)).padStart(10) + "</p>" : "") +
-        '<p class="text-[10px]">' + doble + "</p>" +
-        '<p class="text-[10px] text-right font-bold">TOTAL A PAGAR: ' + UI.esc(dinero(f.total)).padStart(10) + "</p>" +
-        '<p class="text-[10px]">' + doble + "</p>" +
-        '<p class="text-[10px] text-right">CLIENTE: ' + UI.esc(String(f.cliente).slice(0, 20)).padStart(20) + "</p>" +
-        '<p class="text-[10px]">' + linea + "</p>" +
-        '<p class="text-[10px]">¡GRACIAS POR SU COMPRA!</p>' +
-        '<p class="text-[9px]">Conservar este ticket</p>' +
-        '<p class="text-[10px]">' + doble + "</p>" +
-      '</div>' +
+      '<div class="font-mono">' + cabecera + cuerpo + '</div>' +
     '</div>';
 
   $("previewTitulo").textContent = "Factura " + f.folio;
@@ -682,8 +858,14 @@ async function guardarCambiosFactura() {
     b.textContent = "Guardando…";
   }
 
-  const { subtotal, impuesto, tasa, descuento, total } = calcularVenta();
+  const oi = CONFIG.otrosImpuestos || {};
+  const impoconsumo = Number(oi.impoconsumo) || 0;
+  const ico = Number(oi.ico) || 0;
+  const inc = Number(oi.inc) || 0;
+
+  const { subtotal, impuesto, tasa, otros, descuento, total } = calcularVenta();
   const factura = window.facturaEnEdicion;
+  const cliente = $("clientName").value.trim() || "Consumidor Final";
   const items = carrito.map(i => ({
     id: i.id, codigo: i.codigo, descripcion: i.nombre,
     unidad: i.unidad, cantidad: i.cantidad, precio: i.precio,
@@ -692,11 +874,16 @@ async function guardarCambiosFactura() {
 
   const editada = {
     ...factura,
-    cliente: $("clientName").value.trim() || "Consumidor Final",
+    cliente,
+    clienteIdentificacion: identificacionCliente(cliente),
     items,
     subtotal,
     impuesto,
     tasaImpuesto: tasa,
+    impoconsumo,
+    ico,
+    inc,
+    totalOtros: otros,
     descuento,
     total,
     estado: factura.estado || "pagada",
@@ -706,10 +893,15 @@ async function guardarCambiosFactura() {
   try {
     await DB.actualizar(CONFIG.rutas.facturas, factura.id, {
       cliente: editada.cliente,
+      clienteIdentificacion: editada.clienteIdentificacion,
       items: editada.items,
       subtotal: editada.subtotal,
       impuesto: editada.impuesto,
       tasaImpuesto: editada.tasaImpuesto,
+      impoconsumo: editada.impoconsumo,
+      ico: editada.ico,
+      inc: editada.inc,
+      totalOtros: editada.totalOtros,
       descuento: editada.descuento,
       total: editada.total,
       estado: editada.estado,
@@ -815,7 +1007,11 @@ window.onload = function () {
   $("searchInput").addEventListener("input", filtrarProductos);
   $("searchInput").addEventListener("keydown", handleSearchKeyDown);
   $("btnClearSearch").addEventListener("click", limpiarBusqueda);
-  $("discountInput").addEventListener("input", calcularTotales);
+  $("discountInput").addEventListener("input", () => {
+    formatearDescuentoAlTeclear();
+    calcularTotales();
+    guardarBorrador();
+  });
   $("clientName").addEventListener("input", guardarBorrador);
   $("btnTema").addEventListener("click", toggleDarkMode);
   $("btnLimpiar").addEventListener("click", async () => {
@@ -865,12 +1061,26 @@ window.onload = function () {
 
   $("cartTableBody").addEventListener("change", e => {
     const campo = e.target.closest("[data-cant]");
-    if (campo) actualizarCantidadManual(campo.dataset.cant, campo.value);
+    if (campo) { actualizarCantidadManual(campo.dataset.cant, campo.value); return; }
+    const precio = e.target.closest("[data-pri]");
+    if (precio) formatearPrecioAlSalir(precio);
+  });
+
+  /* Mientras se escribe, los puntos de miles se ponen solos y se descartan
+     los caracteres que no son dígitos: el campo responde al instante. */
+  $("cartTableBody").addEventListener("input", e => {
+    const precio = e.target.closest("[data-pri]");
+    if (!precio) return;
+    formatearMilesEnCampo(precio);
   });
 
   /* Flechas dentro del carrito: arriba/abajo mueven de fila,
      izquierda/derecha cambian la cantidad, Supr borra, Enter vuelve al buscador. */
   $("cartTableBody").addEventListener("keydown", e => {
+    /* Escribiendo en el precio o la cantidad, las teclas son del campo:
+       si no, Retroceso/Supr borraría el producto y las flechas moverían
+       de fila mientras se teclea el precio. */
+    if (e.target.closest("input, select, textarea")) return;
     if (e.key === "ArrowDown") { e.preventDefault(); moverFila(1); return; }
     if (e.key === "ArrowUp")   { e.preventDefault(); moverFila(-1); return; }
     if (e.key === "Enter")     { e.preventDefault(); $("searchInput").focus(); $("searchInput").select(); return; }

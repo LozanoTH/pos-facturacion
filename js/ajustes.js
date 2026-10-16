@@ -23,7 +23,11 @@ const Ajustes = (() => {
     const guardado = ajustes || {};
     return {
       empresa: { ...CONFIG.empresa, ...(guardado.empresa || {}) },
-      impuesto: guardado.impuesto !== undefined ? guardado.impuesto : CONFIG.impuestoDefecto
+      impuesto: guardado.impuesto !== undefined ? guardado.impuesto : CONFIG.impuestoDefecto,
+      documento: { ...CONFIG.documento, ...(guardado.documento || {}) },
+      dian: { ...CONFIG.dian, ...(guardado.dian || {}) },
+      otrosImpuestos: { ...CONFIG.otrosImpuestos, ...(guardado.otrosImpuestos || {}) },
+      pie: { ...CONFIG.pie, ...(guardado.pie || {}) }
     };
   }
 
@@ -33,6 +37,10 @@ const Ajustes = (() => {
     if (!ajustes) return;
     if (ajustes.empresa) CONFIG.empresa = { ...CONFIG.empresa, ...ajustes.empresa };
     if (ajustes.impuesto !== undefined) CONFIG.impuestoDefecto = Number(ajustes.impuesto) || 0;
+    if (ajustes.documento) CONFIG.documento = { ...CONFIG.documento, ...ajustes.documento };
+    if (ajustes.dian) CONFIG.dian = { ...CONFIG.dian, ...ajustes.dian };
+    if (ajustes.otrosImpuestos) CONFIG.otrosImpuestos = { ...CONFIG.otrosImpuestos, ...ajustes.otrosImpuestos };
+    if (ajustes.pie) CONFIG.pie = { ...CONFIG.pie, ...ajustes.pie };
     pintarLogo();
     refrescarImpuesto();
   }
@@ -78,6 +86,7 @@ const Ajustes = (() => {
     { id: "empresa",    icono: "fa-building",       etiqueta: "Empresa" },
     { id: "logo",       icono: "fa-image",          etiqueta: "Logo" },
     { id: "impuestos",  icono: "fa-percent",        etiqueta: "Impuestos" },
+    { id: "documento",  icono: "fa-file-invoice",   etiqueta: "Documento" },
     { id: "productos",  icono: "fa-boxes-stacked",  etiqueta: "Productos" },
     { id: "facturas",   icono: "fa-receipt",        etiqueta: "Facturas" },
     { id: "nuevo",      icono: "fa-circle-plus",    etiqueta: "Nuevo producto" }
@@ -120,8 +129,35 @@ const Ajustes = (() => {
     $("cfgDireccion").value = e.direccion || "";
     $("cfgTelefono").value = e.telefono || "";
     $("cfgCorreo").value = e.correo || "";
+    $("cfgSucursal").value = e.sucursal || "";
+    $("cfgCiudad").value = e.ciudad || "";
+    $("cfgRegimen").value = e.regimen || "";
     $("cfgLogo").value = e.logo || "";
     $("cfgImpuesto").value = actuales().impuesto;
+
+    const d = actuales().documento;
+    $("cfgTituloDocumento").value = d.titulo || "";
+    $("cfgCajero").value = d.cajero || "";
+    $("cfgPosNumero").value = d.pos || "";
+    $("cfgPosPrefijo").value = d.prefijo || "";
+
+    const di = actuales().dian;
+    $("cfgDianAutorizacion").value = di.autorizacion || "";
+    $("cfgDianFecha").value = di.fecha || "";
+    $("cfgDianDesde").value = di.desde || "";
+    $("cfgDianHasta").value = di.hasta || "";
+    $("cfgDianVigenciaMeses").value = di.vigenciaMeses || "";
+    $("cfgDianVigenciaHasta").value = di.vigenciaHasta || "";
+
+    const o = actuales().otrosImpuestos;
+    $("cfgImpoconsumo").value = o.impoconsumo || 0;
+    $("cfgIco").value = o.ico || 0;
+    $("cfgInc").value = o.inc || 0;
+
+    const pie = actuales().pie;
+    $("cfgPieMensaje").value = pie.mensaje || "";
+    $("cfgPieSoftware").value = pie.software || "";
+
     verLogo();
   }
 
@@ -180,7 +216,10 @@ const Ajustes = (() => {
       rfc: $("cfgRfc").value.trim(),
       direccion: $("cfgDireccion").value.trim(),
       telefono: $("cfgTelefono").value.trim(),
-      correo: $("cfgCorreo").value.trim()
+      correo: $("cfgCorreo").value.trim(),
+      sucursal: $("cfgSucursal").value.trim(),
+      ciudad: $("cfgCiudad").value.trim(),
+      regimen: $("cfgRegimen").value.trim()
     };
 
     if (!empresa.nombre) return mostrarToast("El nombre de la empresa es obligatorio", "warn");
@@ -190,6 +229,46 @@ const Ajustes = (() => {
     await persistir(
       { empresa: { ...actuales().empresa, ...empresa } },
       boton, "Empresa guardada", "Guardar empresa"
+    );
+  }
+
+  async function guardarDocumento() {
+    const boton = $("btnGuardarDocumento");
+    const num = id => { const v = Number($(id).value); return Number.isFinite(v) ? v : 0; };
+
+    const otrosImpuestos = {
+      impoconsumo: num("cfgImpoconsumo"),
+      ico: num("cfgIco"),
+      inc: num("cfgInc")
+    };
+    for (const v of Object.values(otrosImpuestos)) {
+      if (!(v >= 0 && v <= 100)) return mostrarToast("Los impuestos deben estar entre 0 y 100", "warn");
+    }
+
+    const documento = {
+      titulo: $("cfgTituloDocumento").value.trim(),
+      cajero: $("cfgCajero").value.trim(),
+      pos: $("cfgPosNumero").value.trim(),
+      prefijo: $("cfgPosPrefijo").value.trim()
+    };
+
+    const dian = {
+      autorizacion: $("cfgDianAutorizacion").value.trim(),
+      fecha: $("cfgDianFecha").value.trim(),
+      desde: $("cfgDianDesde").value.trim(),
+      hasta: $("cfgDianHasta").value.trim(),
+      vigenciaMeses: $("cfgDianVigenciaMeses").value.trim(),
+      vigenciaHasta: $("cfgDianVigenciaHasta").value.trim()
+    };
+
+    const pie = {
+      mensaje: $("cfgPieMensaje").value.trim(),
+      software: $("cfgPieSoftware").value.trim()
+    };
+
+    await persistir(
+      { documento, dian, otrosImpuestos, pie },
+      boton, "Documento guardado", "Guardar documento"
     );
   }
 
@@ -591,19 +670,27 @@ const Ajustes = (() => {
     const tasa = Number(facturaEditando.tasaImpuesto || 0);
     const subtotal = editItems.reduce((s, i) => s + (Number(i.precio) || 0) * (Number(i.cantidad) || 0), 0);
     const impuesto = subtotal * tasa / 100;
+    const otros = otrosDeFactura(facturaEditando, subtotal);
     const descuento = Number(facturaEditando.descuento) || 0;
-    const total = subtotal + impuesto - descuento;
+    const total = subtotal + impuesto + otros - descuento;
     $("editFacturaTotales").textContent =
       "Subtotal " + dinero(subtotal) + " · IVA " + dinero(impuesto) + " · Total " + dinero(total);
+  }
+
+  /** Impuestos adicionales (impoconsumo, I.C.O., I.N.C.) de una factura */
+  function otrosDeFactura(f, subtotal) {
+    const pct = (Number(f.impoconsumo) || 0) + (Number(f.ico) || 0) + (Number(f.inc) || 0);
+    return subtotal * pct / 100;
   }
 
   function recalcEditFactura() {
     const tasa = Number(facturaEditando.tasaImpuesto || 0);
     const subtotal = editItems.reduce((s, i) => s + (Number(i.precio) || 0) * (Number(i.cantidad) || 0), 0);
     const impuesto = subtotal * tasa / 100;
+    const otros = otrosDeFactura(facturaEditando, subtotal);
     const descuento = Number(facturaEditando.descuento) || 0;
-    const total = subtotal + impuesto - descuento;
-    return { subtotal, impuesto, tasa, descuento, total };
+    const total = subtotal + impuesto + otros - descuento;
+    return { subtotal, impuesto, tasa, otros, descuento, total };
   }
 
   function cerrarEditorFactura() {
@@ -642,7 +729,7 @@ const Ajustes = (() => {
       return;
     }
 
-    const { subtotal, impuesto, tasa, descuento, total } = recalcEditFactura();
+    const { subtotal, impuesto, tasa, otros, descuento, total } = recalcEditFactura();
 
     try {
       await DB.actualizar(CONFIG.rutas.facturas, id, {
@@ -652,11 +739,12 @@ const Ajustes = (() => {
         subtotal,
         impuesto,
         tasaImpuesto: tasa,
+        totalOtros: otros,
         descuento,
         total,
         actualizado: new Date().toISOString()
       });
-      Object.assign(facturaEditando, { cliente, estado, items, subtotal, impuesto, tasaImpuesto: tasa, descuento, total });
+      Object.assign(facturaEditando, { cliente, estado, items, subtotal, impuesto, tasaImpuesto: tasa, totalOtros: otros, descuento, total });
       filtrarFacturas();
       cerrarEditorFactura();
       mostrarToast("Factura actualizada");
@@ -735,6 +823,7 @@ const Ajustes = (() => {
     $("btnGuardarEmpresa").addEventListener("click", guardarEmpresa);
     $("btnGuardarLogo").addEventListener("click", guardarLogo);
     $("btnGuardarImpuesto").addEventListener("click", guardarImpuesto);
+    $("btnGuardarDocumento").addEventListener("click", guardarDocumento);
 
     $("cfgLogo").addEventListener("input", verLogo);
     $("cfgLogoPrevia").addEventListener("error", () => logoNoCarga("La dirección del logo no carga"));
