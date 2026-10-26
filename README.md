@@ -1,6 +1,3 @@
-[![Licencia](https://img.shields.io/github/license/LozanoTH/pos-facturacion)](LICENSE)
-[![Lenguaje](https://img.shields.io/github/languages/top/LozanoTH/pos-facturacion)](https://github.com/LozanoTH/pos-facturacion)
-
 # POS de Facturación (HTML + CSS + JS + Firebase)
 
 ## demo
