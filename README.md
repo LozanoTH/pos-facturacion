@@ -2,7 +2,7 @@
 
 ## demo
 
-https://lozanoth.github.io/system/
+https://lozanoth.github.io/pos-facturacion/
 
 Punto de venta que funciona en el navegador: **cobrar es imprimir**. No hay build ni servidor; abre `index.html` y vende.
 
